@@ -98,6 +98,8 @@ const actionConfig: Record<ApprovalAction, { color: string; label: string }> = {
   forwarded: { color: "bg-blue-500", label: "forwarded" },
   rejected: { color: "bg-red-500", label: "rejected" },
   returned: { color: "bg-amber-500", label: "returned" },
+  reopened: { color: "bg-amber-500", label: "reopened" },
+  resubmitted: { color: "bg-blue-500", label: "resubmitted" },
 }
 
 const renewalCards = [

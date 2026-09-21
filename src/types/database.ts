@@ -22,7 +22,13 @@ export type MtopDocumentType =
   | "drivers_license"
   | "affidavit_no_franchise"
 
-export type ApprovalAction = "approved" | "rejected" | "returned" | "forwarded"
+export type ApprovalAction =
+  | "approved"
+  | "rejected"
+  | "returned"
+  | "forwarded"
+  | "reopened"
+  | "resubmitted"
 
 export type InspectionResult = "passed" | "failed"
 
@@ -96,6 +102,7 @@ export interface MtopApplication {
   created_by: string | null
   created_at: string
   updated_at: string
+  returned_from: Extract<MtopStatus, "for_verification" | "for_inspection"> | null
 }
 
 export interface MtopDocument {
@@ -173,6 +180,7 @@ export interface ApprovalLog {
   actor_id: string | null
   remarks: string | null
   created_at: string
+  returned_from: Extract<MtopStatus, "for_verification" | "for_inspection"> | null
 }
 
 export interface MtopNegativeList {
@@ -270,13 +278,14 @@ export interface MtopSchema {
     }
     mtop_applications: {
       Row: MtopApplication
-      Insert: Omit<MtopApplication, "id" | "status" | "fiscal_year" | "submitted_at" | "created_at" | "updated_at"> & {
+      Insert: Omit<MtopApplication, "id" | "status" | "fiscal_year" | "submitted_at" | "created_at" | "updated_at" | "returned_from"> & {
         id?: string
         status?: MtopStatus
         fiscal_year?: number
         submitted_at?: string
         created_at?: string
         updated_at?: string
+        returned_from?: MtopApplication["returned_from"]
       }
       Update: Partial<Omit<MtopApplication, "id">>
     }

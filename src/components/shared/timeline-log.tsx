@@ -10,6 +10,7 @@ interface LogEntry {
   remarks: string | null
   created_at: string
   actor?: { id: string; full_name: string } | null
+  returned_from?: Extract<MtopStatus, "for_verification" | "for_inspection"> | null
 }
 
 const actionColors: Record<ApprovalAction, string> = {
@@ -17,6 +18,8 @@ const actionColors: Record<ApprovalAction, string> = {
   forwarded: "bg-blue-500",
   rejected: "bg-red-500",
   returned: "bg-orange-500",
+  reopened: "bg-amber-500",
+  resubmitted: "bg-blue-500",
 }
 
 export function TimelineLog({ logs }: { logs: LogEntry[] }) {
@@ -55,6 +58,11 @@ export function TimelineLog({ logs }: { logs: LogEntry[] }) {
               <span className="text-muted-foreground">at</span>{" "}
               <span className="font-medium">
                 {getStatusLabel(log.stage)}
+                {log.action === "returned" && log.returned_from && (
+                  <span className="text-muted-foreground font-normal">
+                    {` (from ${log.returned_from.replace("for_", "")})`}
+                  </span>
+                )}
               </span>
             </p>
             {log.remarks && (

@@ -13,6 +13,43 @@ async function getAuthUser() {
   return { supabase, user }
 }
 
+async function canRecordPayment(
+  supabase: Awaited<ReturnType<typeof getAuthUser>>["supabase"],
+  userId: string,
+  applicationId: string
+) {
+  const { data: roles } = await supabase
+    .schema("mtop")
+    .from("user_roles")
+    .select("role_id")
+    .eq("user_id", userId)
+
+  const roleIds = (roles ?? []).map((role) => role.role_id)
+  if (roleIds.length === 0) return false
+
+  const { data: permissions } = await supabase
+    .schema("mtop")
+    .from("role_permissions")
+    .select("permission:permissions(code)")
+    .in("role_id", roleIds)
+
+  const permitted = (permissions ?? []).some(
+    (entry) =>
+      (entry.permission as unknown as { code: string } | null)?.code ===
+      "payment.record"
+  )
+  if (!permitted) return false
+
+  const { data: application } = await supabase
+    .schema("mtop")
+    .from("mtop_applications")
+    .select("status")
+    .eq("id", applicationId)
+    .single()
+
+  return application?.status === "for_assessment"
+}
+
 export async function recordPayment(
   applicationId: string,
   assessmentId: string,
@@ -20,6 +57,10 @@ export async function recordPayment(
 ) {
   try {
     const { supabase, user } = await getAuthUser()
+
+    if (!(await canRecordPayment(supabase, user.id, applicationId))) {
+      return { error: "You do not have permission to record payment for this application." }
+    }
 
     const { error } = await supabase
       .schema("mtop")

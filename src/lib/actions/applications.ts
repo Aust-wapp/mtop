@@ -41,6 +41,62 @@ async function getAuthUser() {
 
 type Supabase = Awaited<ReturnType<typeof getAuthUser>>["supabase"]
 
+async function hasPermission(
+  supabase: Supabase,
+  userId: string,
+  permission: string
+) {
+  const { data: userRoles } = await supabase
+    .schema("mtop")
+    .from("user_roles")
+    .select("role_id")
+    .eq("user_id", userId)
+
+  if (!userRoles || userRoles.length === 0) return false
+
+  const { data: rolePermissions } = await supabase
+    .schema("mtop")
+    .from("role_permissions")
+    .select("permission:permissions(code)")
+    .in(
+      "role_id",
+      userRoles.map((role) => role.role_id)
+    )
+
+  return (rolePermissions ?? []).some(
+    (entry) =>
+      (entry.permission as unknown as { code: string } | null)?.code ===
+      permission
+  )
+}
+
+function permissionForTransition(
+  current: MtopStatus,
+  next: MtopStatus
+) {
+  if (current === "for_verification" && next === "for_inspection")
+    return "application.verify"
+  if (current === "for_verification" && next === "returned")
+    return "application.verify"
+  if (current === "for_inspection" && next === "for_assessment")
+    return "inspection.conduct"
+  if (current === "for_inspection" && next === "returned")
+    return "inspection.conduct"
+  if (current === "for_assessment" && next === "for_approval")
+    return "payment.record"
+  if (current === "for_assessment" && next === "returned")
+    return "assessment.create"
+  if (current === "for_approval" && next === "granted")
+    return "application.grant"
+  if (current === "for_approval" && next === "rejected")
+    return "application.approve"
+  if (current === "for_approval" && next === "returned")
+    return "application.approve"
+  if (current === "returned" && next === "for_verification")
+    return "application.verify"
+  return null
+}
+
 async function seedApplicationChildren(
   supabase: Supabase,
   applicationId: string,
@@ -413,13 +469,62 @@ export async function getApplication(id: string) {
 export async function updateApplicationStatus(
   id: string,
   status: MtopStatus,
-  action: "approved" | "rejected" | "returned" | "forwarded",
+  action:
+    | "approved"
+    | "rejected"
+    | "returned"
+    | "forwarded"
+    | "reopened"
+    | "resubmitted",
   remarks?: string
 ) {
   try {
     const { supabase, user } = await getAuthUser()
 
-    const updateData: Record<string, unknown> = { status }
+    const { data: current, error: currentError } = await supabase
+      .schema("mtop")
+      .from("mtop_applications")
+      .select("status")
+      .eq("id", id)
+      .single()
+
+    if (currentError || !current) {
+      return { error: currentError?.message ?? "Application not found." }
+    }
+
+    if (action === "returned" && !remarks?.trim()) {
+      return { error: "A return reason is required." }
+    }
+
+    const requiredPermission = permissionForTransition(current.status, status)
+    if (!requiredPermission) {
+      return {
+        error: `Invalid application status transition: ${current.status} → ${status}`,
+      }
+    }
+
+    if (!(await hasPermission(supabase, user.id, requiredPermission))) {
+      return { error: "You do not have permission for this workflow action." }
+    }
+
+    if (action === "reopened" && (current.status !== "returned" || status !== "for_verification")) {
+      return { error: "Returned applications can only be reopened for verification." }
+    }
+
+    if (action === "resubmitted" && (current.status !== "for_verification" || status !== "for_inspection")) {
+      return { error: "Resubmission must move the application to inspection." }
+    }
+
+    const returnedFrom =
+      action === "returned" &&
+      (current.status === "for_verification" || current.status === "for_inspection")
+        ? current.status
+        : null
+
+    const updateData: Record<string, unknown> = {
+      status,
+      ...(returnedFrom ? { returned_from: returnedFrom } : {}),
+    }
     let grantedAt: Date | null = null
     if (status === "granted") {
       grantedAt = new Date()
@@ -457,6 +562,7 @@ export async function updateApplicationStatus(
         action,
         actor_id: user.id,
         remarks: remarks || null,
+        returned_from: returnedFrom,
       })
 
     if (logError) return { error: logError.message }
@@ -464,6 +570,84 @@ export async function updateApplicationStatus(
     revalidatePath("/dashboard/applications")
     revalidatePath(`/dashboard/applications/${id}`)
     return { error: null }
+  } catch (e) {
+    return { error: (e as Error).message }
+  }
+}
+
+export async function returnApplication(applicationId: string, reason: string) {
+  return updateApplicationStatus(
+    applicationId,
+    "returned",
+    "returned",
+    reason
+  )
+}
+
+export async function reopenReturnedApplication(applicationId: string) {
+  return updateApplicationStatus(
+    applicationId,
+    "for_verification",
+    "reopened",
+    "Returned application reopened for verification"
+  )
+}
+
+export async function resubmitApplicationForInspection(applicationId: string) {
+  try {
+    const { supabase } = await getAuthUser()
+
+    const { data: documents, error: documentsError } = await supabase
+      .schema("mtop")
+      .from("mtop_documents")
+      .select("is_verified")
+      .eq("application_id", applicationId)
+
+    if (documentsError) return { error: documentsError.message }
+
+    const verifiedCount = (documents ?? []).filter(
+      (document) => document.is_verified
+    ).length
+    if (verifiedCount !== (documents ?? []).length) {
+      return {
+        error: "All documents must be verified before forwarding to inspection.",
+      }
+    }
+
+    const { data: application, error: applicationError } = await supabase
+      .schema("mtop")
+      .from("mtop_applications")
+      .select("status, franchise:mtop_franchises(applicant_name)")
+      .eq("id", applicationId)
+      .single()
+
+    if (applicationError || !application) {
+      return { error: applicationError?.message ?? "Application not found." }
+    }
+
+    const applicantName = (
+      application.franchise as unknown as { applicant_name: string } | null
+    )?.applicant_name
+    if (!applicantName) return { error: "Applicant information is missing." }
+
+    const { data: negativeMatches, error: negativeError } = await supabase
+      .schema("mtop")
+      .from("mtop_negative_list")
+      .select("id")
+      .eq("is_active", true)
+      .ilike("applicant_name", `%${applicantName}%`)
+
+    if (negativeError) return { error: negativeError.message }
+    if ((negativeMatches ?? []).length > 0) {
+      return { error: "Cannot forward — applicant is on the negative list." }
+    }
+
+    return updateApplicationStatus(
+      applicationId,
+      "for_inspection",
+      "resubmitted",
+      "Verification completed after correction"
+    )
   } catch (e) {
     return { error: (e as Error).message }
   }

@@ -20,14 +20,15 @@ const stageOrder: Record<string, number> = {
 
 export function ApprovalStepper({ status }: { status: MtopStatus }) {
   const currentIndex = stageOrder[status] ?? -1
-  const isTerminal = status === "rejected" || status === "returned"
+  const isTerminal = status === "rejected"
+  const isReturned = status === "returned"
 
   return (
     <div className="space-y-1">
       {STAGES.map((stage, index) => {
         const isCompleted = currentIndex > index
         const isCurrent = currentIndex === index && !isTerminal
-        const isUpcoming = currentIndex < index || isTerminal
+        const isUpcoming = currentIndex < index || isTerminal || isReturned
 
         return (
           <div key={stage.key} className="flex items-center gap-3">
@@ -66,13 +67,24 @@ export function ApprovalStepper({ status }: { status: MtopStatus }) {
       })}
 
       {/* Terminal status indicator */}
+      {isReturned && (
+        <div className="flex items-center gap-3">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-amber-600 bg-amber-600 text-white text-xs font-medium">
+            !
+          </div>
+          <span className="text-sm font-semibold text-amber-700">
+            Returned — Re-open for Verification
+          </span>
+        </div>
+      )}
+
       {isTerminal && (
         <div className="flex items-center gap-3">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-red-600 bg-red-600 text-white text-xs font-medium">
             !
           </div>
           <span className="text-sm font-semibold text-red-600 capitalize">
-            {status === "returned" ? "Returned" : "Rejected"}
+            Rejected
           </span>
         </div>
       )}

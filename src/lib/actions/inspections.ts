@@ -14,12 +14,60 @@ async function getAuthUser() {
   return { supabase, user }
 }
 
+async function assertInspectionAccess(
+  supabase: Awaited<ReturnType<typeof getAuthUser>>["supabase"],
+  userId: string,
+  applicationId: string
+) {
+  const { data: roles } = await supabase
+    .schema("mtop")
+    .from("user_roles")
+    .select("role_id")
+    .eq("user_id", userId)
+
+  const roleIds = (roles ?? []).map((role) => role.role_id)
+  if (roleIds.length === 0) return "You do not have permission to conduct inspections."
+
+  const { data: permissions } = await supabase
+    .schema("mtop")
+    .from("role_permissions")
+    .select("permission:permissions(code)")
+    .in("role_id", roleIds)
+
+  const canInspect = (permissions ?? []).some(
+    (entry) =>
+      (entry.permission as unknown as { code: string } | null)?.code ===
+      "inspection.conduct"
+  )
+  if (!canInspect) return "You do not have permission to conduct inspections."
+
+  const { data: application, error } = await supabase
+    .schema("mtop")
+    .from("mtop_applications")
+    .select("status")
+    .eq("id", applicationId)
+    .single()
+
+  if (error || !application) return "Application not found."
+  if (application.status !== "for_inspection") {
+    return "Inspections can only be submitted during inspection."
+  }
+  return null
+}
+
 export async function createInspection(
   applicationId: string,
   checklist: InspectionFormValues
 ) {
   try {
     const { supabase, user } = await getAuthUser()
+
+    const denied = await assertInspectionAccess(
+      supabase,
+      user.id,
+      applicationId
+    )
+    if (denied) return { error: denied, data: null }
 
     // Compute result: all true = passed, any false = failed
     const allPassed = INSPECTION_FIELDS.every(

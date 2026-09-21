@@ -12,6 +12,58 @@ async function getAuthUser() {
   return { supabase, user }
 }
 
+async function assertVerificationAccess(
+  supabase: Awaited<ReturnType<typeof getAuthUser>>["supabase"],
+  userId: string,
+  applicationId: string,
+  documentId: string
+) {
+  const { data: roles } = await supabase
+    .schema("mtop")
+    .from("user_roles")
+    .select("role_id")
+    .eq("user_id", userId)
+
+  const roleIds = (roles ?? []).map((role) => role.role_id)
+  if (roleIds.length === 0) return "You do not have permission to verify documents."
+
+  const { data: permissions } = await supabase
+    .schema("mtop")
+    .from("role_permissions")
+    .select("permission:permissions(code)")
+    .in("role_id", roleIds)
+
+  const canVerify = (permissions ?? []).some(
+    (entry) =>
+      (entry.permission as unknown as { code: string } | null)?.code ===
+      "application.verify"
+  )
+  if (!canVerify) return "You do not have permission to verify documents."
+
+  const { data: application, error: applicationError } = await supabase
+    .schema("mtop")
+    .from("mtop_applications")
+    .select("status")
+    .eq("id", applicationId)
+    .single()
+
+  if (applicationError || !application) return "Application not found."
+  if (application.status !== "for_verification") {
+    return "Documents can only be corrected during verification."
+  }
+
+  const { data: document, error: documentError } = await supabase
+    .schema("mtop")
+    .from("mtop_documents")
+    .select("id")
+    .eq("id", documentId)
+    .eq("application_id", applicationId)
+    .maybeSingle()
+
+  if (documentError || !document) return "Document not found for this application."
+  return null
+}
+
 export async function verifyDocument(
   documentId: string,
   applicationId: string,
@@ -19,6 +71,14 @@ export async function verifyDocument(
 ) {
   try {
     const { supabase, user } = await getAuthUser()
+
+    const denied = await assertVerificationAccess(
+      supabase,
+      user.id,
+      applicationId,
+      documentId
+    )
+    if (denied) return { error: denied }
 
     const { error } = await supabase
       .schema("mtop")
@@ -45,7 +105,15 @@ export async function updateDocumentRemarks(
   remarks: string
 ) {
   try {
-    const { supabase } = await getAuthUser()
+    const { supabase, user } = await getAuthUser()
+
+    const denied = await assertVerificationAccess(
+      supabase,
+      user.id,
+      applicationId,
+      documentId
+    )
+    if (denied) return { error: denied }
 
     const { error } = await supabase
       .schema("mtop")
@@ -68,7 +136,15 @@ export async function updateDocumentFileUrl(
   fileUrl: string | null
 ) {
   try {
-    const { supabase } = await getAuthUser()
+    const { supabase, user } = await getAuthUser()
+
+    const denied = await assertVerificationAccess(
+      supabase,
+      user.id,
+      applicationId,
+      documentId
+    )
+    if (denied) return { error: denied }
 
     const { error } = await supabase
       .schema("mtop")

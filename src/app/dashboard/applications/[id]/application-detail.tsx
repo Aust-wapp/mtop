@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -36,7 +35,11 @@ import {
   Printer,
 } from "lucide-react"
 import { format } from "date-fns"
-import { updateApplicationStatus } from "@/lib/actions/applications"
+import {
+  reopenReturnedApplication,
+  returnApplication,
+  updateApplicationStatus,
+} from "@/lib/actions/applications"
 import { checkNegativeList } from "@/lib/actions/documents"
 import { usePermissions } from "@/lib/hooks/use-permissions"
 import { getExpirationStatus } from "@/lib/utils/permit-expiration"
@@ -73,7 +76,13 @@ export function ApplicationDetail({ application, settings }: { application: any;
 
   async function handleStatusChange(
     newStatus: MtopStatus,
-    action: "approved" | "rejected" | "returned" | "forwarded"
+    action:
+      | "approved"
+      | "rejected"
+      | "returned"
+      | "forwarded"
+      | "reopened"
+      | "resubmitted"
   ) {
     if (action === "returned" && !remarks.trim()) {
       setError("Remarks are required when returning an application.")
@@ -83,12 +92,17 @@ export function ApplicationDetail({ application, settings }: { application: any;
     setLoading(true)
     setError(null)
 
-    const result = await updateApplicationStatus(
-      application.id,
-      newStatus,
-      action,
-      remarks || undefined
-    )
+    const result =
+      action === "returned"
+        ? await returnApplication(application.id, remarks)
+        : action === "reopened"
+        ? await reopenReturnedApplication(application.id)
+        : await updateApplicationStatus(
+            application.id,
+            newStatus,
+            action,
+            remarks || undefined
+          )
 
     if (result.error) {
       setError(result.error)
@@ -112,7 +126,7 @@ export function ApplicationDetail({ application, settings }: { application: any;
         title={franchise?.mtop_number ?? "Pending MTOP Number"}
         subtitle={`${franchise?.applicant_name ?? ""} — ${franchise?.route ?? "No route"}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-2">
             {application.status === "granted" && (
               <Button
                 variant="outline"
@@ -126,6 +140,18 @@ export function ApplicationDetail({ application, settings }: { application: any;
               </Button>
             )}
             <StatusBadge status={application.status} />
+            {application.status === "returned" && can("application.verify") && (
+              <Button
+                size="sm"
+                onClick={() =>
+                  handleStatusChange("for_verification", "reopened")
+                }
+                disabled={loading}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Re-open for Verification
+              </Button>
+            )}
           </div>
         }
       />
@@ -541,7 +567,13 @@ function StageActions({
   onRemarksChange: (v: string) => void
   onAction: (
     status: MtopStatus,
-    action: "approved" | "rejected" | "returned" | "forwarded"
+    action:
+      | "approved"
+      | "rejected"
+      | "returned"
+      | "forwarded"
+      | "reopened"
+      | "resubmitted"
   ) => void
   verifiedCount: number
   totalDocs: number
@@ -553,6 +585,8 @@ function StageActions({
   payments: any[]
   isOnNegativeList: boolean
 }) {
+  if (status === "returned") return null
+
   // Determine which actions are available based on current status and permissions
   let title = ""
   let description = ""
@@ -639,7 +673,9 @@ function StageActions({
               onClick={() =>
                 onAction(
                   forwardStatus!,
-                  isGrantAction ? "approved" : "forwarded"
+                  isGrantAction
+                    ? "approved"
+                    : "forwarded"
                 )
               }
               disabled={loading}

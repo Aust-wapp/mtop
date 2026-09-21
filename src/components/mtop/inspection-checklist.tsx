@@ -18,7 +18,10 @@ import { ClipboardCheck, AlertCircle, Loader2, Check, X } from "lucide-react"
 import { useProfile } from "@/lib/hooks/use-profile"
 import { createInspection } from "@/lib/actions/inspections"
 import { INSPECTION_FIELDS, INSPECTION_LABELS } from "@/lib/inspection"
-import { updateApplicationStatus } from "@/lib/actions/applications"
+import {
+  returnApplication,
+  updateApplicationStatus,
+} from "@/lib/actions/applications"
 import type { MtopStatus } from "@/types/database"
 
 interface InspectionChecklistProps {
@@ -35,11 +38,17 @@ export function InspectionChecklist({
   canInspect,
   status,
 }: InspectionChecklistProps) {
-  const router = useRouter()
   const { profile } = useProfile()
 
-  // If inspection already exists, show read-only result
-  if (existingInspection) {
+  // A failed inspection remains visible after a return, but once the
+  // application has gone back through verification and re-entered inspection,
+  // allow a new attempt without deleting the previous record.
+  const canStartNewAttempt =
+    status === "for_inspection" && existingInspection?.result === "failed"
+
+  // If inspection already exists, show read-only result unless this is a new
+  // inspection attempt after a verification re-check.
+  if (existingInspection && !canStartNewAttempt) {
     return (
       <InspectionResult
         inspection={existingInspection}
@@ -266,10 +275,8 @@ function InspectionResult({
     setLoading(true)
     setError(null)
 
-    const result = await updateApplicationStatus(
+    const result = await returnApplication(
       applicationId,
-      "returned",
-      "returned",
       inspection.remarks || "Inspection failed"
     )
 
