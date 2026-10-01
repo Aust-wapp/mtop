@@ -11,10 +11,13 @@ export function PrintControls({
   title,
   subject,
   hint,
+  actions,
 }: {
   title: string
   subject?: string
   hint: string
+  /** Extra buttons, shown beside Print. */
+  actions?: React.ReactNode
 }) {
   return (
     <div className="no-print flex items-center justify-between gap-4 border-b bg-background px-6 py-3">
@@ -23,10 +26,13 @@ export function PrintControls({
         {subject && <span className="text-muted-foreground"> — {subject}</span>}
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
-      <Button onClick={() => window.print()}>
-        <Printer className="h-4 w-4" />
-        Print
-      </Button>
+      <div className="flex items-center gap-2">
+        {actions}
+        <Button onClick={() => window.print()}>
+          <Printer className="h-4 w-4" />
+          Print
+        </Button>
+      </div>
     </div>
   )
 }

@@ -26,6 +26,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   users: "Users",
   settings: "Settings",
   associations: "Associations",
+  "printable-forms": "Printable Forms",
   account: "Account",
 }
 
