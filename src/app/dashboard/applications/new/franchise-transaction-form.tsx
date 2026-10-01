@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ import {
   franchiseTransactionSchema,
   type FranchiseTransactionFormValues,
   existingFranchiseTransactionCodes,
+  requiresReason,
 } from "@/lib/schemas/mtop"
 import { createFranchiseTransaction } from "@/lib/actions/applications"
 import { useUnitIdentifierCheck } from "@/lib/hooks/use-unit-identifier-check"
@@ -46,6 +48,7 @@ export function FranchiseTransactionForm({
   const [serverError, setServerError] = useState<string | null>(null)
   const isChangeUnit = transactionType.code === "change_unit"
   const isChangeOwnership = transactionType.code === "change_ownership"
+  const needsReason = requiresReason(transactionType.code)
 
   // Body, plate, motor and chassis are unique across active franchises.
   // Tracked off register()'s own onChange rather than watch(), which React
@@ -81,6 +84,7 @@ export function FranchiseTransactionForm({
       day_off: franchise.day_off ?? "",
       association_id: franchise.association_id ?? "",
       due_date: "",
+      reason: "",
     },
   })
 
@@ -317,6 +321,41 @@ export function FranchiseTransactionForm({
               </div>
             </CardContent>
           </Card>
+
+          {needsReason && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Reason</CardTitle>
+                <CardDescription>
+                  Why the operator is filing {transactionType.name.toLowerCase()}.
+                  Kept on the application record.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Label htmlFor="reason" className="sr-only">
+                  Reason
+                </Label>
+                <Textarea
+                  id="reason"
+                  rows={3}
+                  placeholder={
+                    transactionType.code === "reissuance"
+                      ? "e.g. Original permit lost"
+                      : transactionType.code === "closure"
+                        ? "e.g. Unit sold for scrap; operator leaving the trade"
+                        : "e.g. Required by LTO for registration renewal"
+                  }
+                  {...register("reason")}
+                  aria-invalid={!!errors.reason}
+                />
+                {errors.reason && (
+                  <p className="text-xs text-destructive">
+                    {errors.reason.message}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Change of unit — the new motor/chassis/plate are staged here and
               only applied to the franchise once this transaction is granted

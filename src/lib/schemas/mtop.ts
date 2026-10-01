@@ -83,10 +83,33 @@ const franchiseTransactionBaseSchema = z.object({
   new_barangay: z.string().optional(),
   new_purok: z.string().trim().max(80).optional(),
   new_contact_number: z.string().trim().optional(),
+  // Required for the transactions in reasonRequiredCodes; ignored elsewhere.
+  reason: z.string().trim().max(1000, "Reason is too long").optional(),
 })
+
+// Transactions where the operator's stated reason goes on file — why the
+// permit is being reprinted, why the franchise is closing, why the slip is
+// being asked for.
+export const reasonRequiredCodes = [
+  "reissuance",
+  "closure",
+  "annual_confirmation",
+] as const satisfies readonly (typeof existingFranchiseTransactionCodes)[number][]
+
+export function requiresReason(code: string): boolean {
+  return (reasonRequiredCodes as readonly string[]).includes(code)
+}
 
 export const franchiseTransactionSchema = franchiseTransactionBaseSchema.superRefine(
   (data, ctx) => {
+    if (requiresReason(data.transaction_type_code) && !data.reason) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "State the reason for this transaction",
+      })
+    }
+
     if (data.transaction_type_code === "change_unit") {
       if (!data.new_motor_number) {
         ctx.addIssue({

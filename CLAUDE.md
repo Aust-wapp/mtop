@@ -112,6 +112,10 @@ Only **mandatory, non-conditional** items block forwarding out of verification â
 
 To add or reword a checklist item, `INSERT`/`UPDATE` these tables. Do not add TypeScript arrays of requirement codes.
 
+Since `20260413000029_checklist_documents_only.sql` no transaction's checklist carries `payment`, `inspection`, `appearance` or `photo` rows â€” each is already recorded by the fee assessment, the inspection card, or the photos card. The catalogue entries remain for granted/rejected applications that still reference them.
+
+Re-issuance, closure and annual confirmation require a free-text `mtop_applications.reason` at filing (`reasonRequiredCodes` in `src/lib/schemas/mtop.ts`, re-checked in `createFranchiseTransaction`); it shows as an alert on the application detail page.
+
 ### Fees
 
 The fee schedule is per transaction, in `src/lib/fees.ts`. `feeScheduleFor(code)` returns what a transaction may be charged and what each line starts at; `feeKeysFor(code)` is the same set without needing a late-renewal figure to hand.

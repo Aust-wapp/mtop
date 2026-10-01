@@ -144,6 +144,9 @@ export interface MtopApplication {
   new_purok: string | null
   new_applicant_address: string | null
   new_contact_number: string | null
+  // Operator's stated reason — reissuance, closure and annual_confirmation
+  // only (20260413000029).
+  reason: string | null
   // One scanned PDF of the whole requirements folder — see
   // 20260413000027_requirements_bundle.sql. The per-row file_url on
   // mtop_application_requirements is still there for the document that turns

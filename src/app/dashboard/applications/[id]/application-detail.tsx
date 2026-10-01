@@ -430,6 +430,18 @@ export function ApplicationDetail({
         />
       )}
 
+      {/* Reissuance, closure and annual confirmation carry the operator's
+          stated reason from filing. */}
+      {application.reason && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Reason for {transactionType?.name ?? "this application"}</AlertTitle>
+          <AlertDescription className="whitespace-pre-wrap">
+            {application.reason}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main content — 2/3 */}
         <div className="space-y-6 lg:col-span-2">

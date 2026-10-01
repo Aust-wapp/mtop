@@ -7,6 +7,7 @@ import type {
   NewFranchiseApplicationFormValues,
   FranchiseTransactionFormValues,
 } from "@/lib/schemas/mtop"
+import { requiresReason } from "@/lib/schemas/mtop"
 import {
   normalizeOperatorName,
   findCoOwnerMarker,
@@ -393,6 +394,11 @@ export async function createFranchiseTransaction(
     const denied = await assertCanCreate(supabase, user.id)
     if (denied) return { error: denied, data: null }
 
+    // The form enforces this too, but the action is callable directly.
+    if (requiresReason(input.transaction_type_code) && !input.reason?.trim()) {
+      return { error: "State the reason for this transaction.", data: null }
+    }
+
     const { data: settings } = await getSystemSettings()
 
     const { error: typeError, data: transactionType } =
@@ -580,6 +586,9 @@ export async function createFranchiseTransaction(
           : null,
         new_contact_number: isChangeOwnership
           ? input.new_contact_number || null
+          : null,
+        reason: requiresReason(input.transaction_type_code)
+          ? input.reason?.trim() || null
           : null,
       })
       .select("id")
