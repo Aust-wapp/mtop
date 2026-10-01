@@ -48,6 +48,10 @@ const franchiseFields: Record<string, AuditFieldMeta> = {
   route: { label: "Route", group: "franchise", kind: "text" },
 
   applicant_name: { label: "Operator", group: "operator", kind: "text" },
+  last_name: { label: "Operator last name", group: "operator", kind: "text" },
+  first_name: { label: "Operator first name", group: "operator", kind: "text" },
+  middle_name: { label: "Operator middle name", group: "operator", kind: "text" },
+  suffix: { label: "Operator name suffix", group: "operator", kind: "text" },
   applicant_address: { label: "Operator address", group: "operator", kind: "text" },
   barangay: { label: "Barangay", group: "operator", kind: "text" },
   purok: { label: "Purok", group: "operator", kind: "text" },

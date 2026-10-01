@@ -37,3 +37,33 @@ export function findCoOwnerMarker(name: string): string | null {
 
 export const SINGLE_OPERATOR_MESSAGE =
   "A franchise is issued to one operator only. Enter a single person's name — co-ownership is not allowed."
+
+/**
+ * The operator's name as the forms take it — see
+ * 20260413000030_operator_name_parts.sql.
+ */
+export type OperatorNameParts = {
+  last_name: string
+  first_name: string
+  middle_name?: string | null
+  suffix?: string | null
+}
+
+/**
+ * The one readable line stored in applicant_name: "Juan P. Dela Cruz Jr." —
+ * first, middle, last, suffix, the order the existing records are written in.
+ * Everything downstream (the card, search, the one-franchise-per-operator
+ * index) reads this line, so the server actions compose it here and nowhere
+ * else.
+ */
+export function composeOperatorName(parts: Partial<OperatorNameParts>): string {
+  return [parts.first_name, parts.middle_name, parts.last_name, parts.suffix]
+    .map((part) => part?.trim().replace(/\s+/g, " "))
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+}
+
+/** Trimmed part for storage; blank becomes NULL. */
+export function namePart(value: string | null | undefined): string | null {
+  return value?.trim().replace(/\s+/g, " ") || null
+}

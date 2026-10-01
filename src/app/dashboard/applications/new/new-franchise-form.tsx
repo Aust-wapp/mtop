@@ -26,6 +26,8 @@ import {
 import { useUnitIdentifierCheck } from "@/lib/hooks/use-unit-identifier-check"
 import { AssociationSelect } from "@/components/mtop/association-select"
 import { BarangaySelect } from "@/components/mtop/barangay-select";
+import { OperatorNameFields } from "@/components/mtop/operator-name-fields"
+import { composeOperatorName } from "@/lib/operator-name"
 import type { TransactionType } from "@/types/database";
 import { RequirementsPreview } from "./requirements-preview";
 
@@ -63,7 +65,10 @@ export function NewFranchiseForm({
   } = useForm<NewFranchiseApplicationFormValues>({
     resolver: zodResolver(newFranchiseApplicationSchema),
     defaultValues: {
-      applicant_name: "",
+      last_name: "",
+      first_name: "",
+      middle_name: "",
+      suffix: "",
       barangay: "",
       purok: "",
       contact_number: "",
@@ -79,7 +84,6 @@ export function NewFranchiseForm({
     },
   });
 
-  const applicantNameField = register("applicant_name")
   const bodyNumberField = register("tricycle_body_number")
   const plateNumberField = register("plate_number")
   const motorNumberField = register("motor_number")
@@ -162,28 +166,30 @@ export function NewFranchiseForm({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="applicant_name">Full Name</Label>
-                  <Input
-                    id="applicant_name"
-                    placeholder="Juan Dela Cruz"
-                    {...applicantNameField}
-                    onChange={(e) => {
-                      applicantNameField.onChange(e)
-                      setOperatorName(e.target.value)
-                    }}
-                    aria-invalid={!!errors.applicant_name}
-                  />
-                  {errors.applicant_name ? (
-                    <p className="text-xs text-destructive">
-                      {errors.applicant_name.message}
-                    </p>
-                  ) : operatorBlock ? (
-                    <p className="text-xs text-destructive">{operatorBlock}</p>
-                  ) : null}
-                </div>
+              <div className="space-y-2">
+                <OperatorNameFields
+                  fields={{
+                    last: register("last_name"),
+                    first: register("first_name"),
+                    middle: register("middle_name"),
+                    suffix: register("suffix"),
+                  }}
+                  errors={{
+                    last: errors.last_name?.message,
+                    first: errors.first_name?.message,
+                    middle: errors.middle_name?.message,
+                    suffix: errors.suffix?.message,
+                  }}
+                  onNameChange={(parts) =>
+                    setOperatorName(composeOperatorName(parts))
+                  }
+                />
+                {operatorBlock && (
+                  <p className="text-xs text-destructive">{operatorBlock}</p>
+                )}
+              </div>
 
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="contact_number">Contact Number</Label>
                   <Input

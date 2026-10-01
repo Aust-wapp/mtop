@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { getBarangays } from "@/lib/actions/barangays"
 import type { Barangay } from "@/types/database"
@@ -25,6 +25,7 @@ export function BarangaySelect({
    * an address that was valid when it was recorded.
    */
   currentBarangay,
+  ref,
   ...props
 }: React.ComponentProps<"select"> & {
   invalid?: boolean
@@ -33,17 +34,36 @@ export function BarangaySelect({
   const [barangays, setBarangays] = useState<Barangay[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // react-hook-form sets the default value on the DOM node when it registers,
+  // which is before the list has loaded. Until then the only option holding
+  // that value is the temporary currentBarangay one, and swapping the loaded
+  // list in drops it — the select falls back to the placeholder while the form
+  // still holds the barangay. So remember the selection across the swap and
+  // put it back.
+  const selectRef = useRef<HTMLSelectElement | null>(null)
+  const pendingValue = useRef<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     getBarangays().then((result) => {
       if (cancelled) return
       if (result.error) setError(result.error)
-      else setBarangays(result.data)
+      else {
+        pendingValue.current = selectRef.current?.value || null
+        setBarangays(result.data)
+      }
     })
     return () => {
       cancelled = true
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (pendingValue.current && selectRef.current) {
+      selectRef.current.value = pendingValue.current
+      pendingValue.current = null
+    }
+  }, [barangays])
 
   const options = barangays ?? []
   const needsCurrent =
@@ -52,6 +72,11 @@ export function BarangaySelect({
   return (
     <div className="space-y-1">
       <select
+        ref={(node) => {
+          selectRef.current = node
+          if (typeof ref === "function") ref(node)
+          else if (ref) ref.current = node
+        }}
         id={id}
         aria-invalid={invalid}
         className={cn(

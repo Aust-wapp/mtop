@@ -12,6 +12,8 @@ import {
   normalizeOperatorName,
   findCoOwnerMarker,
   SINGLE_OPERATOR_MESSAGE,
+  composeOperatorName,
+  namePart,
 } from "@/lib/operator-name"
 import {
   normalizeUnitIdentifier,
@@ -262,8 +264,14 @@ export async function createNewFranchiseApplication(
     if (typeError || !transactionType)
       return { error: typeError, data: null }
 
+    // Taken in parts, stored as one line too — see src/lib/operator-name.ts.
+    const applicantName = composeOperatorName(input)
+    if (!namePart(input.last_name) || !namePart(input.first_name)) {
+      return { error: "The operator's last and first name are required.", data: null }
+    }
+
     // One operator per franchise.
-    const coOwner = findCoOwnerMarker(input.applicant_name)
+    const coOwner = findCoOwnerMarker(applicantName)
     if (coOwner) {
       return {
         error: `${SINGLE_OPERATOR_MESSAGE} (found "${coOwner}" in the name)`,
@@ -275,7 +283,7 @@ export async function createNewFranchiseApplication(
     // here lets us name the franchise that is in the way.
     const heldFranchise = await findOperatorsActiveFranchise(
       supabase,
-      input.applicant_name
+      applicantName
     )
     if (heldFranchise) {
       return {
@@ -324,7 +332,11 @@ export async function createNewFranchiseApplication(
       .schema("mtop")
       .from("mtop_franchises")
       .insert({
-        applicant_name: input.applicant_name,
+        applicant_name: applicantName,
+        last_name: namePart(input.last_name),
+        first_name: namePart(input.first_name),
+        middle_name: namePart(input.middle_name),
+        suffix: namePart(input.suffix),
         barangay: input.barangay,
         purok: input.purok?.trim() || null,
         // The one readable line every other reader uses — the card, search,
@@ -451,10 +463,23 @@ export async function createFranchiseTransaction(
       }
     }
 
+    const successorName = composeOperatorName({
+      last_name: input.new_last_name ?? "",
+      first_name: input.new_first_name ?? "",
+      middle_name: input.new_middle_name,
+      suffix: input.new_suffix,
+    })
+
     // A change of ownership names the successor up front, so the one-franchise
     // -per-operator rule can be applied at filing rather than only at grant.
     if (input.transaction_type_code === "change_ownership") {
-      const successor = input.new_applicant_name ?? ""
+      const successor = successorName
+      if (!namePart(input.new_last_name) || !namePart(input.new_first_name)) {
+        return {
+          error: "The new owner's last and first name are required.",
+          data: null,
+        }
+      }
       const successorCoOwner = findCoOwnerMarker(successor)
       if (successorCoOwner) {
         return {
@@ -578,7 +603,13 @@ export async function createFranchiseTransaction(
         new_motor_number: isChangeUnit ? input.new_motor_number : null,
         new_chassis_number: isChangeUnit ? input.new_chassis_number : null,
         new_plate_number: isChangeUnit ? input.new_plate_number || null : null,
-        new_applicant_name: isChangeOwnership ? input.new_applicant_name : null,
+        new_applicant_name: isChangeOwnership ? successorName : null,
+        new_last_name: isChangeOwnership ? namePart(input.new_last_name) : null,
+        new_first_name: isChangeOwnership ? namePart(input.new_first_name) : null,
+        new_middle_name: isChangeOwnership
+          ? namePart(input.new_middle_name)
+          : null,
+        new_suffix: isChangeOwnership ? namePart(input.new_suffix) : null,
         new_barangay: isChangeOwnership ? input.new_barangay || null : null,
         new_purok: isChangeOwnership ? input.new_purok?.trim() || null : null,
         new_applicant_address: isChangeOwnership

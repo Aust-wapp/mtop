@@ -31,6 +31,7 @@ import { RequirementsPreview } from "./requirements-preview"
 import { ReadOnlyField } from "./read-only-field"
 import { AssociationSelect } from "@/components/mtop/association-select"
 import { BarangaySelect } from "@/components/mtop/barangay-select"
+import { OperatorNameFields } from "@/components/mtop/operator-name-fields"
 
 type ExistingCode = (typeof existingFranchiseTransactionCodes)[number]
 
@@ -462,19 +463,21 @@ export function FranchiseTransactionForm({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="new_applicant_name">New Owner&apos;s Full Name</Label>
-                  <Input
-                    id="new_applicant_name"
-                    {...register("new_applicant_name")}
-                    aria-invalid={!!errors.new_applicant_name}
-                  />
-                  {errors.new_applicant_name && (
-                    <p className="text-xs text-destructive">
-                      {errors.new_applicant_name.message}
-                    </p>
-                  )}
-                </div>
+                <OperatorNameFields
+                  idPrefix="new_"
+                  fields={{
+                    last: register("new_last_name"),
+                    first: register("new_first_name"),
+                    middle: register("new_middle_name"),
+                    suffix: register("new_suffix"),
+                  }}
+                  errors={{
+                    last: errors.new_last_name?.message,
+                    first: errors.new_first_name?.message,
+                    middle: errors.new_middle_name?.message,
+                    suffix: errors.new_suffix?.message,
+                  }}
+                />
 
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">

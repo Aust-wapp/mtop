@@ -3,12 +3,22 @@ import { findCoOwnerMarker, SINGLE_OPERATOR_MESSAGE } from "@/lib/operator-name"
 
 // Franchise (stable owner + tricycle identity).
 // Used both standalone and as the base for new-franchise application input.
-export const franchiseSchema = z.object({
-  applicant_name: z
+// One part of an operator's name. Each part is checked for co-ownership
+// markers on its own — see src/lib/operator-name.ts.
+const namePartSchema = (max: number) =>
+  z
     .string()
-    .min(2, "Applicant name must be at least 2 characters")
-    // One operator per franchise — see src/lib/operator-name.ts.
-    .refine((v) => !findCoOwnerMarker(v), SINGLE_OPERATOR_MESSAGE),
+    .trim()
+    .max(max, "Too long")
+    .refine((v) => !findCoOwnerMarker(v), SINGLE_OPERATOR_MESSAGE)
+
+export const franchiseSchema = z.object({
+  // Stored as parts and composed into applicant_name by the server action —
+  // see 20260413000030_operator_name_parts.sql.
+  last_name: namePartSchema(60).pipe(z.string().min(1, "Last name is required")),
+  first_name: namePartSchema(60).pipe(z.string().min(1, "First name is required")),
+  middle_name: namePartSchema(60).optional(),
+  suffix: namePartSchema(10).optional(),
   // Address is structured: the barangay comes from mtop.barangays (a foreign
   // key, so it can be counted) and the purok is free text, since puroks have
   // no citywide register. The one-line applicant_address the rest of the
@@ -75,11 +85,12 @@ const franchiseTransactionBaseSchema = z.object({
   new_motor_number: z.string().trim().optional(),
   new_chassis_number: z.string().trim().optional(),
   new_plate_number: z.string().trim().optional(),
-  new_applicant_name: z
-    .string()
-    .trim()
-    .refine((v) => !v || !findCoOwnerMarker(v), SINGLE_OPERATOR_MESSAGE)
-    .optional(),
+  // The successor's name, in parts; composed into new_applicant_name by the
+  // server action.
+  new_last_name: namePartSchema(60).optional(),
+  new_first_name: namePartSchema(60).optional(),
+  new_middle_name: namePartSchema(60).optional(),
+  new_suffix: namePartSchema(10).optional(),
   new_barangay: z.string().optional(),
   new_purok: z.string().trim().max(80).optional(),
   new_contact_number: z.string().trim().optional(),
@@ -127,15 +138,21 @@ export const franchiseTransactionSchema = franchiseTransactionBaseSchema.superRe
       }
     }
 
-    if (
-      data.transaction_type_code === "change_ownership" &&
-      !data.new_applicant_name
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["new_applicant_name"],
-        message: "The new owner's name is required for a change of ownership",
-      })
+    if (data.transaction_type_code === "change_ownership") {
+      if (!data.new_last_name) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["new_last_name"],
+          message: "The new owner's last name is required",
+        })
+      }
+      if (!data.new_first_name) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["new_first_name"],
+          message: "The new owner's first name is required",
+        })
+      }
     }
 
     // The successor's barangay is what the franchise ends up carrying once the

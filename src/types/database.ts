@@ -90,7 +90,14 @@ export interface RolePermission {
 export interface MtopFranchise {
   id: string
   mtop_number: string | null
+  // Composed "First Middle Last Suffix" from the parts below — the column
+  // everything else reads. The parts are NULL on franchises registered before
+  // 20260413000030.
   applicant_name: string
+  last_name: string | null
+  first_name: string | null
+  middle_name: string | null
+  suffix: string | null
   applicant_address: string | null
   contact_number: string | null
   tricycle_body_number: string | null
@@ -140,6 +147,10 @@ export interface MtopApplication {
   new_chassis_number: string | null
   new_plate_number: string | null
   new_applicant_name: string | null
+  new_last_name: string | null
+  new_first_name: string | null
+  new_middle_name: string | null
+  new_suffix: string | null
   new_barangay: string | null
   new_purok: string | null
   new_applicant_address: string | null
@@ -443,6 +454,10 @@ export interface MtopSchema {
         | "association_id"
         | "barangay"
         | "purok"
+        | "last_name"
+        | "first_name"
+        | "middle_name"
+        | "suffix"
       > & {
         id?: string
         created_at?: string
@@ -461,6 +476,10 @@ export interface MtopSchema {
         association_id?: string | null
         barangay?: string | null
         purok?: string | null
+        last_name?: string | null
+        first_name?: string | null
+        middle_name?: string | null
+        suffix?: string | null
       }
       Update: Partial<Omit<MtopFranchise, "id">>
     }
@@ -482,6 +501,11 @@ export interface MtopSchema {
         | "new_contact_number"
         | "new_barangay"
         | "new_purok"
+        | "new_last_name"
+        | "new_first_name"
+        | "new_middle_name"
+        | "new_suffix"
+        | "reason"
       > & {
         id?: string
         status?: MtopStatus
@@ -497,6 +521,11 @@ export interface MtopSchema {
         new_contact_number?: string | null
         new_barangay?: string | null
         new_purok?: string | null
+        new_last_name?: string | null
+        new_first_name?: string | null
+        new_middle_name?: string | null
+        new_suffix?: string | null
+        reason?: string | null
       }
       Update: Partial<Omit<MtopApplication, "id">>
     }
