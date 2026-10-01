@@ -23,6 +23,7 @@ import {
   Users,
   Settings,
   Building2,
+  Printer,
 } from "lucide-react"
 
 interface NavItem {
@@ -60,6 +61,12 @@ const adminItems: NavItem[] = [
     title: "Associations",
     href: "/dashboard/admin/associations",
     icon: Building2,
+    permissions: ["admin.manage"],
+  },
+  {
+    title: "Printable Forms",
+    href: "/dashboard/admin/printable-forms",
+    icon: Printer,
     permissions: ["admin.manage"],
   },
   {
