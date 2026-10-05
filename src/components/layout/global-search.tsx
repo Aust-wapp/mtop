@@ -44,8 +44,7 @@ export function GlobalSearch() {
   // Cmd/Ctrl+K from anywhere in the dashboard.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const key = typeof e.key === "string" ? e.key.toLowerCase() : ""
-      if (key === "k" && (e.metaKey || e.ctrlKey)) {
+      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((prev) => !prev)
       }
