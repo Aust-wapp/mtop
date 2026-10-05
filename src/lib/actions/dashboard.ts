@@ -139,6 +139,7 @@ export async function getRenewalStats() {
       .schema("mtop")
       .from("mtop_franchises")
       .select("granted_until")
+      .eq("franchise_status", "active")
       .not("granted_until", "is", null)
 
     if (error) return { error: error.message, data: null }

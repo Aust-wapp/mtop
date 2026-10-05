@@ -18,7 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
 import { AlertCircle, ArrowLeft } from "lucide-react"
-import { getExpirationStatus } from "@/lib/utils/permit-expiration"
+import { getFranchiseStatusDisplay } from "@/lib/utils/franchise-status"
+import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
 import type { FranchiseHistoryEvent } from "@/lib/audit"
 import type { MtopFranchise, MtopApplication, MtopStatus, TransactionType } from "@/types/database"
 
@@ -32,14 +33,6 @@ export type FranchiseTransaction = MtopApplication & {
     TransactionType,
     "id" | "code" | "name" | "grant_effect"
   > | null
-}
-
-const franchiseStatusLabels: Record<string, string> = {
-  active: "Active",
-  closed: "Closed",
-  abandoned: "Abandoned",
-  revoked: "Revoked",
-  cancelled: "Cancelled",
 }
 
 /**
@@ -67,10 +60,12 @@ export function FranchiseDetail({
   backLabel?: string
   operatorMode?: boolean
 }) {
-  const expiration =
-    franchise.franchise_status === "active" && franchise.granted_until
-      ? getExpirationStatus(franchise.granted_until, renewalWindowDays)
-      : null
+  const franchiseStatusDisplay = getFranchiseStatusDisplay(
+    franchise.franchise_status,
+    franchise.granted_until,
+    renewalWindowDays
+  )
+  const expiration = franchiseStatusDisplay.expiration
   const initialGrant = applications
     .filter(
       (application) =>
@@ -108,10 +103,7 @@ export function FranchiseDetail({
         }
         actions={
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
-              {franchiseStatusLabels[franchise.franchise_status] ??
-                franchise.franchise_status}
-            </span>
+            <FranchiseStatusBadge status={franchise.franchise_status} />
             {expiration && (
               <ExpirationBadge
                 status={expiration.status}
@@ -188,10 +180,7 @@ export function FranchiseDetail({
                     />
                     <ReadOnlyField
                       label="Franchise status"
-                      value={
-                        franchiseStatusLabels[franchise.franchise_status] ??
-                        franchise.franchise_status
-                      }
+                      value={franchiseStatusDisplay.statusLabel}
                     />
                     <ReadOnlyField
                       label="Date granted"
@@ -205,7 +194,11 @@ export function FranchiseDetail({
                       }
                     />
                     <ReadOnlyField
-                      label="Valid through"
+                      label={
+                        franchiseStatusDisplay.isActive
+                          ? "Valid through"
+                          : franchiseStatusDisplay.historicalValidityLabel
+                      }
                       value={
                         franchise.granted_until
                           ? format(

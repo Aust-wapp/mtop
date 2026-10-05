@@ -76,7 +76,7 @@ export function ReportsContent({
     const headers = [
       "MTOP #", "Applicant", "Address", "Contact",
       "Body #", "Plate #", "Motor #", "Chassis #",
-      "Route", "Status", "Fiscal Year", "Due Date", "Submitted", "Granted", "Expires",
+      "Route", "Status", "Fiscal Year", "Due Date", "Submitted", "Granted", "Valid Through",
     ]
 
     const rows = result.data.map(

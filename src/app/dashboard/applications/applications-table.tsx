@@ -21,13 +21,12 @@ import {
   getStatusLabel,
 } from "@/components/shared/status-badge"
 import { ExpirationBadge } from "@/components/shared/expiration-badge"
+import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
 import { Search, ChevronLeft, ChevronRight, FileText, X } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
-import {
-  expirationDateBounds,
-  getExpirationStatus,
-} from "@/lib/utils/permit-expiration"
+import { expirationDateBounds } from "@/lib/utils/permit-expiration"
+import { getFranchiseStatusDisplay } from "@/lib/utils/franchise-status"
 import type {
   MtopApplication,
   MtopFranchise,
@@ -217,6 +216,7 @@ export function ApplicationsTable() {
     }
 
     if (expirations.length > 0) {
+      query = query.eq("franchise.franchise_status", "active")
       const { today, windowEnd } = expirationDateBounds(
         settings.renewal_window_days
       )
@@ -376,12 +376,12 @@ export function ApplicationsTable() {
                 // The expiry belongs to the franchise, not to this application:
                 // a renewal still sitting in verification is exactly the row
                 // where how overdue the operator is matters most.
-                const expirationInfo = app.franchise?.granted_until
-                  ? getExpirationStatus(
-                      app.franchise.granted_until,
-                      settings.renewal_window_days
-                    )
-                  : null
+                const franchiseStatusDisplay = getFranchiseStatusDisplay(
+                  app.franchise?.franchise_status,
+                  app.franchise?.granted_until,
+                  settings.renewal_window_days
+                )
+                const expirationInfo = franchiseStatusDisplay.expiration
 
                 return (
                   <TableRow
@@ -417,7 +417,12 @@ export function ApplicationsTable() {
                       <StatusBadge status={app.status} />
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {expirationInfo ? (
+                      {app.franchise?.franchise_status &&
+                      !franchiseStatusDisplay.isActive ? (
+                        <FranchiseStatusBadge
+                          status={app.franchise.franchise_status}
+                        />
+                      ) : expirationInfo ? (
                         <ExpirationBadge
                           status={expirationInfo.status}
                           daysRemaining={expirationInfo.daysRemaining}

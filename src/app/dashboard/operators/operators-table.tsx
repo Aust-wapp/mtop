@@ -10,6 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FacetedFilter } from "@/components/shared/faceted-filter"
 import { StatusBadge } from "@/components/shared/status-badge"
+import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
 import {
   Table,
   TableBody,
@@ -31,24 +32,10 @@ const STATUS_OPTIONS = [
   { label: "Inactive / Closed", value: "inactive", dot: "bg-slate-400" },
 ]
 
-const FRANCHISE_STATUS_LABELS: Record<string, string> = {
-  active: "Active",
-  closed: "Closed",
-  abandoned: "Abandoned",
-  revoked: "Revoked",
-  cancelled: "Cancelled",
-}
-
 function formatDate(value: string | null): string {
   if (!value) return "—"
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? "—" : format(date, "MMM d, yyyy")
-}
-
-function franchiseStatusClass(status: string): string {
-  return status === "active"
-    ? "bg-green-50 text-green-800 ring-green-200"
-    : "bg-slate-100 text-slate-700 ring-slate-200"
 }
 
 function parseStatusFilter(statuses: string[]): OperatorDirectoryStatus {
@@ -304,12 +291,7 @@ function OperatorRow({ operator }: { operator: OperatorDirectoryRecord }) {
         )}
       </TableCell>
       <TableCell>
-        <span
-          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${franchiseStatusClass(operator.franchise_status)}`}
-        >
-          {FRANCHISE_STATUS_LABELS[operator.franchise_status] ??
-            operator.franchise_status}
-        </span>
+        <FranchiseStatusBadge status={operator.franchise_status} />
       </TableCell>
       <TableCell className="hidden text-sm md:table-cell">
         {formatDate(operator.date_granted)}
