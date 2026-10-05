@@ -67,9 +67,10 @@ export function FranchiseDetail({
   backLabel?: string
   operatorMode?: boolean
 }) {
-  const expiration = franchise.granted_until
-    ? getExpirationStatus(franchise.granted_until, renewalWindowDays)
-    : null
+  const expiration =
+    franchise.franchise_status === "active" && franchise.granted_until
+      ? getExpirationStatus(franchise.granted_until, renewalWindowDays)
+      : null
   const initialGrant = applications
     .filter(
       (application) =>
