@@ -119,6 +119,10 @@ export function FranchiseLookup({
                     : f.franchise_status !== "active"
                       ? `Franchise is ${f.franchise_status}`
                       : ""
+                const validThroughLabel =
+                  f.franchise_status === "active"
+                    ? "Expires"
+                    : "Previous validity end"
 
                 return (
                   // The whole row is the control, not just the button at the
@@ -145,7 +149,7 @@ export function FranchiseLookup({
                           Plate {f.plate_number ?? "—"} · Body{" "}
                           {f.tricycle_body_number ?? "—"} ·{" "}
                           {f.granted_until
-                            ? `Expires ${f.granted_until}`
+                            ? `${validThroughLabel} ${f.granted_until}`
                             : "Never granted"}
                         </div>
                         {blockedReason && (
