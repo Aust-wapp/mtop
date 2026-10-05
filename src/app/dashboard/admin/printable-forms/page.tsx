@@ -33,7 +33,7 @@ export default async function PrintableFormsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Printable Forms"
-        subtitle="Blank forms for the counter. Each sheet prints two copies on A4 (portrait)."
+        subtitle="Blank forms for the counter. Each sheet prints one form on A4 (portrait)."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
