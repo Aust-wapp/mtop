@@ -137,6 +137,9 @@ export async function getFranchiseHistory(
     if (franchiseRes.error) return { error: franchiseRes.error.message, data: [] }
     if (!franchiseRes.data) return { error: "Franchise not found.", data: [] }
     if (auditRes.error) return { error: auditRes.error.message, data: [] }
+    if (unitRes.error) return { error: unitRes.error.message, data: [] }
+    if (ownerRes.error) return { error: ownerRes.error.message, data: [] }
+    if (appsRes.error) return { error: appsRes.error.message, data: [] }
 
     const applications = (appsRes.data ?? []) as unknown as {
       id: string
@@ -183,11 +186,14 @@ export async function getFranchiseHistory(
 
     const associationNames: Record<string, string> = {}
     if (associationIds.size > 0) {
-      const { data: associations } = await supabase
+      const { data: associations, error: associationsError } = await supabase
         .schema("mtop")
         .from("associations")
         .select("id, name")
         .in("id", [...associationIds])
+      if (associationsError) {
+        return { error: associationsError.message, data: [] }
+      }
       for (const a of (associations ?? []) as { id: string; name: string }[]) {
         associationNames[a.id] = a.name
       }

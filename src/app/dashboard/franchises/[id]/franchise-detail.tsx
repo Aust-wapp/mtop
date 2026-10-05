@@ -28,7 +28,10 @@ export type FranchiseRecord = MtopFranchise & {
 }
 
 export type FranchiseTransaction = MtopApplication & {
-  transaction_type?: Pick<TransactionType, "id" | "code" | "name"> | null
+  transaction_type?: Pick<
+    TransactionType,
+    "id" | "code" | "name" | "grant_effect"
+  > | null
 }
 
 const franchiseStatusLabels: Record<string, string> = {
@@ -51,33 +54,57 @@ export function FranchiseDetail({
   history,
   historyError,
   renewalWindowDays,
+  backHref = "/dashboard/applications",
+  backLabel = "Back to applications",
+  operatorMode = false,
 }: {
   franchise: FranchiseRecord
   applications: FranchiseTransaction[]
   history: FranchiseHistoryEvent[]
   historyError: string | null
   renewalWindowDays: number
+  backHref?: string
+  backLabel?: string
+  operatorMode?: boolean
 }) {
   const expiration = franchise.granted_until
     ? getExpirationStatus(franchise.granted_until, renewalWindowDays)
     : null
+  const initialGrant = applications
+    .filter(
+      (application) =>
+        application.status === "granted" &&
+        application.transaction_type?.grant_effect === "issue_number" &&
+        application.granted_at
+    )
+    .sort((left, right) =>
+      (left.granted_at ?? "").localeCompare(right.granted_at ?? "")
+    )[0]
 
   return (
     <div className="space-y-6">
       <Link
-        href="/dashboard/applications"
+        href={backHref}
         className={buttonVariants({
           variant: "ghost",
           size: "sm",
           className: "gap-1.5 -ml-2",
         })}
       >
-        <ArrowLeft className="h-4 w-4" /> Back to applications
+        <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
       <PageHeader
-        title={franchise.mtop_number ?? "Unnumbered franchise"}
-        subtitle={franchise.applicant_name}
+        title={
+          operatorMode
+            ? franchise.applicant_name
+            : franchise.mtop_number ?? "Unnumbered franchise"
+        }
+        subtitle={
+          operatorMode
+            ? `MTOP No. ${franchise.mtop_number}`
+            : franchise.applicant_name
+        }
         actions={
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
@@ -97,14 +124,15 @@ export function FranchiseDetail({
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Operator</CardTitle>
+                <CardTitle className="text-lg">Operator details</CardTitle>
               </CardHeader>
               <CardContent>
                 <dl className="grid gap-4 sm:grid-cols-2 text-sm">
@@ -123,14 +151,59 @@ export function FranchiseDetail({
                     label="Association"
                     value={franchise.association?.name ?? "No association (striker)"}
                   />
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">MTOP / Franchise</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid gap-4 sm:grid-cols-2 text-sm">
                   <ReadOnlyField
-                    label="Renewal due"
+                    label="MTOP number"
+                    value={franchise.mtop_number}
+                    mono
+                  />
+                  <ReadOnlyField
+                    label="Franchise status"
+                    value={
+                      franchiseStatusLabels[franchise.franchise_status] ??
+                      franchise.franchise_status
+                    }
+                  />
+                  <ReadOnlyField
+                    label="Date granted"
+                    value={
+                      initialGrant?.granted_at
+                        ? format(new Date(initialGrant.granted_at), "MMM d, yyyy")
+                        : null
+                    }
+                  />
+                  <ReadOnlyField
+                    label="Valid through"
                     value={
                       franchise.granted_until
                         ? format(new Date(franchise.granted_until), "MMM d, yyyy")
                         : null
                     }
                   />
+                  <div className="min-w-0">
+                    <dt className="mb-1 text-xs text-muted-foreground">
+                      Original application
+                    </dt>
+                    {initialGrant ? (
+                      <Link
+                        href={`/dashboard/applications/${initialGrant.id}`}
+                        className="break-all font-mono text-xs underline-offset-2 hover:underline"
+                      >
+                        {initialGrant.id}
+                      </Link>
+                    ) : (
+                      <dd className="font-medium">—</dd>
+                    )}
+                  </div>
                 </dl>
               </CardContent>
             </Card>
@@ -140,7 +213,7 @@ export function FranchiseDetail({
                 <CardTitle className="text-lg">Driver</CardTitle>
                 <CardDescription>
                   The driver currently on file for this franchise. Every change
-                  to these fields is kept under History.
+                  to these fields is kept under Activity.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -196,55 +269,63 @@ export function FranchiseDetail({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Transactions</CardTitle>
-                <CardDescription>
-                  Every transaction filed against this franchise, newest first.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {applications.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No transactions filed yet.
-                  </p>
-                ) : (
-                  <ul className="divide-y">
-                    {applications.map((app) => (
-                      <li
-                        key={app.id}
-                        className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-                      >
-                        <div className="min-w-0">
-                          <Link
-                            href={`/dashboard/applications/${app.id}`}
-                            className="text-sm font-medium hover:underline underline-offset-2"
-                          >
-                            {app.transaction_type?.name ?? "Transaction"}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">
-                            Filed{" "}
-                            {format(new Date(app.submitted_at), "MMM d, yyyy")}
-                          </p>
-                        </div>
-                        <StatusBadge status={app.status as MtopStatus} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="history">
+        <TabsContent value="transactions">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Audit trail</CardTitle>
+              <CardTitle className="text-lg">Transactions</CardTitle>
               <CardDescription>
-                Every recorded change to this franchise — operator, driver,
-                unit and status — alongside the transactions and approvals that
-                accompanied them.
+                Applications and business transactions filed against this MTOP
+                record, newest first.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {applications.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No transactions filed yet.</p>
+              ) : (
+                <ul className="divide-y">
+                  {applications.map((application) => (
+                    <li
+                      key={application.id}
+                      className="flex flex-col gap-3 py-3 first:pt-0 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <Link
+                          href={`/dashboard/applications/${application.id}`}
+                          className="text-sm font-medium underline-offset-2 hover:underline"
+                        >
+                          {application.transaction_type?.name ?? "Transaction"}
+                        </Link>
+                        <p className="break-all text-xs text-muted-foreground">
+                          <span className="font-mono">Application ID {application.id}</span>
+                          {" · "}Filed{" "}
+                          {format(new Date(application.submitted_at), "MMM d, yyyy")}
+                          {application.granted_at && (
+                            <>
+                              {" · "}Completed{" "}
+                              {format(new Date(application.granted_at), "MMM d, yyyy")}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <StatusBadge status={application.status as MtopStatus} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Activity</CardTitle>
+              <CardDescription>
+                Recorded changes, application events, and approval decisions for
+                this MTOP record.
               </CardDescription>
             </CardHeader>
             <CardContent>
