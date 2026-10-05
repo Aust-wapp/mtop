@@ -1,26 +1,67 @@
 /**
- * The seven MTOP application forms, laid out two to an A4 page.
+ * The seven MTOP application forms, one to an A4 page.
  *
  * The office's originals are one form to a portrait sheet, each with a
  * Tracker / Received By / Date Posted block along the bottom for franchise
  * staff. Those blocks are gone — the system tracks all of that now — and what
- * is left is redrawn to fit half an A4 portrait page, so one press yields two
- * forms to cut apart along the dashed line.
+ * is left is typeset the way a printed form is: compact fields on a common
+ * grid, thin rules, thin boxes, and whatever is left of the page left blank
+ * rather than stretched over.
  *
- * Like the Confirmation Slip this is a form, not a coordinate map: every rule
- * is a flex child, so wording changes stretch a line instead of breaking the
- * page. Set in Arial, which every machine that prints it has.
+ * Every form is a list of blocks (field grids, boxes, the reason block, the
+ * signature, the legal text) drawn by the same few components below, so the
+ * seven read as one family. Fields sit on a CSS grid whose label columns size
+ * themselves to their longest label, which keeps every rule starting at the
+ * same place without measuring anything. Set in Arial, which every machine that
+ * prints it has.
  */
 
 /** A4, portrait. A hair under 297mm so rounding never spills a blank page. */
 const SHEET_W = "210mm"
 const SHEET_H = "296.5mm"
 /** Printers will not reach the very edge; keep ink off the outer margin. */
-const MARGIN_OUTER = 26
-/** Between the two copies — each side of the cut line. */
-const MARGIN_CUT = 10
+const MARGIN_X = "16mm"
+const MARGIN_TOP = "11mm"
+const MARGIN_BOTTOM = "12mm"
 
 const SANS = "Arial, Helvetica, sans-serif"
+
+/** Rules and box strokes: one weight, thin enough to write across, dark enough to photocopy. */
+const STROKE = "0.75pt solid #000"
+
+/** Type sizes, in pt. */
+const FONT = {
+  body: 10.5,
+  small: 8.5,
+  statement: 9,
+  heading: 11,
+  title: 16,
+}
+
+/** Section headings: REASON, box and panel titles. One treatment so they read as one rank. */
+const HEADING = { fontWeight: 700, fontSize: `${FONT.heading}pt`, lineHeight: 1.2 } as const
+
+/** One writing line, from rule to rule. */
+const PITCH = 25
+/** Space between blocks on the page. */
+const BLOCK_GAP = 11
+/** Space between the groups inside one field grid. */
+const GROUP_GAP = 9
+
+/**
+ * The first label column never gets narrower than this, so on every form the
+ * rules start at the same place however short its labels are. It is a little
+ * wider than the longest label that shares a column with the rest.
+ */
+const LABEL_MIN = 111
+/** The second label column of a two-up row. */
+const LABEL_MIN_RIGHT = 88
+/** Space left between one field's rule and the next field's label. */
+const CELL_GAP = 18
+/** Space between a label and its rule. */
+const LABEL_GAP = 5
+/** A box's side padding plus its border, so a boxed rule starts where an unboxed one does. */
+const BOX_INSET = 8 + 0.75
 
 export const APPLICATION_FORM_TYPES = [
   "new-franchise",
@@ -34,33 +75,37 @@ export const APPLICATION_FORM_TYPES = [
 
 export type ApplicationFormType = (typeof APPLICATION_FORM_TYPES)[number]
 
-interface Field {
-  label: string
-  /** Share of the row. Labels are measured out of it, so the rule gets what is left. */
-  grow?: number
+/**
+ * A line of the form: one, two or three fields side by side. A lone field runs
+ * the full width unless it is `short`, which stops it at the end of the first
+ * column. `own` sets a label too long for the label column on a line of its
+ * own, so it does not push every other rule across with it.
+ */
+type Row =
+  | { labels: string[]; short?: boolean; own?: boolean }
+  | "gap"
+
+interface Panel {
+  title: string
+  rows: Row[]
 }
 
 type Block =
-  | { kind: "row"; fields: Field[] }
-  | { kind: "heading"; text: string }
-  | { kind: "checks"; label?: string; options: string[] }
-  | { kind: "box"; title?: string; blocks: Block[] }
-  | { kind: "pair"; left: Block; right: Block }
-  | { kind: "ruled" }
+  | { kind: "fields"; rows: Row[]; labelMin?: number }
+  | { kind: "box"; title: string; rows: Row[]; labelMin?: number; spaceBefore?: number }
+  | { kind: "compare"; left: Panel; right: Panel }
+  | { kind: "reason"; options: string[] }
   | { kind: "signature" }
   | { kind: "statements" }
 
 interface FormDefinition {
   title: string
-  /** Sparse forms get taller rows so the sheet is filled, not left bare. */
-  rowHeight: number
   blocks: Block[]
 }
 
-const row = (...labels: (string | Field)[]): Block => ({
-  kind: "row",
-  fields: labels.map((l) => (typeof l === "string" ? { label: l } : l)),
-})
+const row = (...labels: string[]): Row => ({ labels })
+const half = (label: string): Row => ({ labels: [label], short: true })
+const own = (label: string): Row => ({ labels: [label], own: true })
 
 /**
  * What each form asks for is what the system records for that transaction —
@@ -72,25 +117,24 @@ const row = (...labels: (string | Field)[]): Block => ({
  * "Cab No." on the paper forms is the body number in the system.
  */
 
-/**
- * Each copy is wide and short — about 21 x 14.8 cm — so related fields share a
- * line (three across for the unit numbers) instead of stacking one to a row.
- */
-
 /** The driver is entered at verification, but the applicant supplies it. */
-const driverBlocks: Block[] = [
-  row({ label: "Driver’s Name:", grow: 1.5 }, "Driver’s License No.:"),
+const driverRows: Row[] = [
+  "gap",
+  row("Driver’s Name:"),
   row("Address:"),
+  half("Driver’s License No.:"),
 ]
 
 /** A new franchise has no MTOP number yet — it is issued on grant. */
 const newUnitBox: Block = {
   kind: "box",
   title: "Unit Described as Follows:",
-  blocks: [
-    row("Body No.:", "Plate No.:"),
-    row("MAKE:", "Route:"),
-    row("Motor/Engine No.:", "Chassis No.:"),
+  rows: [
+    row("Body/Cab No.:", "Plate No.:"),
+    row("MAKE:"),
+    row("Route:"),
+    row("Motor/Engine No.:"),
+    row("Chassis No.:"),
   ],
 }
 
@@ -98,22 +142,29 @@ const newUnitBox: Block = {
 const unitBox: Block = {
   kind: "box",
   title: "Unit Described as Follows:",
-  blocks: [
-    row("Body No.:", "MTOP No.:", "Plate No.:"),
-    row("MAKE:", "Route:"),
-    row("Motor/Engine No.:", "Chassis No.:"),
+  rows: [
+    row("Body/Cab No.:", "MTOP No.:"),
+    half("Plate No.:"),
+    row("MAKE:"),
+    row("Route:"),
+    row("Motor/Engine No.:"),
+    row("Chassis No.:"),
   ],
 }
 
 const FORMS: Record<ApplicationFormType, FormDefinition> = {
   "new-franchise": {
     title: "NEW FRANCHISE",
-    rowHeight: 22,
     blocks: [
-      row("Application Date:", "Contact Number:"),
-      row("Applicant Name:"),
-      row("Address:"),
-      ...driverBlocks,
+      {
+        kind: "fields",
+        rows: [
+          row("Application Date:", "Contact Number:"),
+          row("Applicant’s Name:"),
+          row("Address:"),
+          ...driverRows,
+        ],
+      },
       newUnitBox,
       { kind: "signature" },
       { kind: "statements" },
@@ -121,65 +172,76 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
   },
   renewal: {
     title: "RENEWAL OF FRANCHISE",
-    rowHeight: 22,
     blocks: [
-      row("Application Date:", "Contact Number:"),
-      row("Operator:"),
-      row("Address:"),
-      ...driverBlocks,
-      unitBox,
-      { kind: "signature" },
-      { kind: "statements" },
-    ],
-  },
-  "change-of-ownership": {
-    title: "CHANGE OF OWNERSHIP",
-    rowHeight: 18,
-    blocks: [
-      row("Application Date:", "Driver’s License No.:"),
-      row("Driver’s Name:"),
-      row("Address:"),
       {
-        kind: "pair",
-        left: {
-          kind: "box",
-          title: "CURRENT OWNER:",
-          blocks: [row("Full Name:"), row("Body No.:"), row("Contact Number:")],
-        },
-        right: {
-          kind: "box",
-          title: "NEW OWNER:",
-          blocks: [row("Full Name:"), row("Body No.:"), row("Contact Number:")],
-        },
+        kind: "fields",
+        rows: [
+          row("Application Date:", "Contact Number:"),
+          row("Applicant’s Name:"),
+          row("Address:"),
+          ...driverRows,
+        ],
       },
       unitBox,
       { kind: "signature" },
       { kind: "statements" },
     ],
   },
+  // A change of ownership only happens when the owner has died and a relative
+  // succeeds to the franchise, so the form names the deceased, the successor
+  // and how they are related. There is no unit box — the unit does not change —
+  // and no contact number for the deceased.
+  "change-of-ownership": {
+    title: "CHANGE OF OWNERSHIP",
+    blocks: [
+      {
+        kind: "fields",
+        labelMin: 118,
+        rows: [
+          row("Application Date:", "MTOP No.:"),
+          row("Applicant’s Name:"),
+          row("Address:"),
+          half("Contact Number:"),
+        ],
+      },
+      {
+        kind: "box",
+        title: "CURRENT OWNER (DECEASED):",
+        labelMin: 118,
+        rows: [row("Full Name:"), row("Date of Death:"), row("Body/Cab No.:"), row("Plate No.:")],
+      },
+      {
+        kind: "box",
+        title: "NEW OWNER (SUCCESSOR):",
+        labelMin: 118,
+        rows: [
+          row("Full Name:"),
+          own("Relationship to Deceased Owner:"),
+          row("Contact Number:"),
+          row("Address:"),
+          row("Driver’s License No.:"),
+        ],
+      },
+      { kind: "signature" },
+      { kind: "statements" },
+    ],
+  },
   "change-unit": {
     title: "MOTOR VEHICLE CHANGE UNIT",
-    rowHeight: 26,
     blocks: [
-      row("Application Date:", "MTOP No.:"),
-      row("Applicant Name:"),
-      { kind: "heading", text: "UNIT DESCRIPTION" },
       {
-        kind: "pair",
+        kind: "fields",
+        rows: [row("Application Date:", "MTOP No.:"), row("Applicant’s Name:")],
+      },
+      {
+        kind: "compare",
         left: {
-          kind: "box",
           title: "OLD",
-          blocks: [
-            row("MAKE:"),
-            row("Plate No.:"),
-            row("Motor/Engine No.:"),
-            row("Chassis No.:"),
-          ],
+          rows: [row("MAKE:"), row("Plate No.:"), row("Motor/Engine No.:"), row("Chassis No.:")],
         },
         right: {
-          kind: "box",
           title: "NEW",
-          blocks: [
+          rows: [
             row("MAKE:"),
             row("Plate No. (if changed):"),
             row("Motor/Engine No.:"),
@@ -193,56 +255,67 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
   },
   closure: {
     title: "CLOSURE OF FRANCHISE",
-    rowHeight: 19,
     blocks: [
-      row("Application Date:", "MTOP No.:"),
-      row("Applicant Name:"),
-      row({ label: "Address:", grow: 1.5 }, "Contact Number:"),
-      row("Body No.:", "Plate No.:"),
-      { kind: "heading", text: "REASON:" },
       {
-        kind: "checks",
+        kind: "fields",
+        rows: [
+          half("Application Date:"),
+          row("Applicant’s Name:"),
+          row("MTOP No.:", "Body/Cab No.:"),
+          row("Address:"),
+          row("Contact Number:", "Plate No.:"),
+        ],
+      },
+      {
+        kind: "reason",
         options: [
           "BIR Clearance",
           "LTO (For Change Classification From Tricycle back to Private)",
           "Others",
         ],
       },
-      { kind: "ruled" },
-      { kind: "heading", text: "UNIT DESCRIPTION" },
-      row("MAKE:", "Motor/Engine No.:", "Chassis No.:"),
+      {
+        kind: "box",
+        title: "UNIT DESCRIPTION",
+        spaceBefore: 6,
+        rows: [row("MAKE:"), row("Motor/Engine No.:"), row("Chassis No.:")],
+      },
       { kind: "signature" },
     ],
   },
   reissuance: {
     title: "RE-ISSUANCE OF FRANCHISE",
-    rowHeight: 18,
     blocks: [
-      row("Application Date:", "MTOP No.:", "Body No.:"),
-      row("Requester’s Name:"),
-      row({ label: "Address:", grow: 1.5 }, "Contact Number:"),
-      { kind: "heading", text: "REASON:" },
       {
-        kind: "checks",
-        options: ["Closure", "LTO Clearance", "BIR Clearance", "Others"],
+        kind: "fields",
+        rows: [
+          half("Application Date:"),
+          row("Applicant’s Name:"),
+          row("MTOP No.:", "Body/Cab No.:"),
+          row("Address:"),
+          half("Contact Number:"),
+        ],
       },
-      { kind: "ruled" },
+      { kind: "reason", options: ["Closure", "LTO Clearance", "BIR Clearance", "Others"] },
       { kind: "signature" },
     ],
   },
   "confirmation-slip": {
     title: "CONFIRMATION SLIP",
-    rowHeight: 18,
     blocks: [
-      row("Application Date:", "MTOP No.:"),
-      row("Applicant Name:"),
-      row({ label: "Address:", grow: 1.5 }, "Contact Number:"),
-      { kind: "heading", text: "REASON:" },
       {
-        kind: "checks",
+        kind: "fields",
+        rows: [
+          row("Application Date:", "MTOP No.:"),
+          row("Applicant’s Name:"),
+          row("Address:"),
+          half("Contact Number:"),
+        ],
+      },
+      {
+        kind: "reason",
         options: ["BIR Clearance", "To Renew Expired LTO O.R. Registration", "Others"],
       },
-      { kind: "ruled" },
       { kind: "signature" },
     ],
   },
@@ -260,286 +333,349 @@ const STATEMENTS = [
   "WHEREFORE, IT IS MOST RESPECTFULLY prayed unto His Honor, the City Mayor that the aforementioned application be issued a Motorized Tricycle Operator’s Permit to operate a motorcab / tri-wheeler service in the route applied for.",
 ]
 
-/** Rules and box strokes. Thin enough to write across, heavy enough to photocopy. */
-const RULE = "0.6pt solid #000"
-const BOX = "0.9pt solid #000"
-
-function Check({ text }: { text: string }) {
+/** A field label. A parenthetical note ("(if changed)") is set lighter so it does not outweigh the name. */
+function Label({ text }: { text: string }) {
+  const m = /^(.*?)( \([^)]*\))(:?)$/.exec(text)
+  if (!m) return <>{text}</>
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "flex-start",
-        gap: "3pt",
-        lineHeight: 1.15,
-      }}
-    >
-      <span
-        style={{
-          flex: "none",
-          width: "7pt",
-          height: "7pt",
-          marginTop: "0.5pt",
-          border: BOX,
-        }}
-      />
-      <span>{text}</span>
-    </span>
+    <>
+      {m[1]}
+      <span style={{ fontWeight: 400, fontSize: `${FONT.small}pt` }}>{m[2]}</span>
+      {m[3]}
+    </>
   )
 }
 
-function Row({ fields, height }: { fields: Field[]; height: number }) {
+const labelStyle = {
+  display: "flex",
+  alignItems: "flex-end",
+  boxSizing: "border-box",
+  height: `${PITCH}pt`,
+  whiteSpace: "nowrap",
+  fontWeight: 700,
+  lineHeight: 1.1,
+} as const
+
+/** A writing line the width of its cell. */
+function Rule({ column }: { column: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "7pt" }}>
-      {fields.map((f) => (
-        <div
-          key={f.label}
-          style={{
-            flex: `${f.grow ?? 1} 1 0`,
-            minWidth: 0,
-            height: `${height}pt`,
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "2.5pt",
-          }}
-        >
-          <span style={{ whiteSpace: "nowrap", fontWeight: 700, lineHeight: 1.2 }}>
-            {f.label}
-          </span>
-          <span style={{ flex: 1, minWidth: "8pt", borderBottom: RULE, height: "1pt" }} />
-        </div>
+    <div
+      style={{
+        gridColumn: column,
+        boxSizing: "border-box",
+        height: `${PITCH}pt`,
+        borderBottom: STROKE,
+      }}
+    />
+  )
+}
+
+/**
+ * Label-and-rule fields on a grid: a label column and a rule column for each
+ * field across a line. Every line of a grid shares its columns, so the rules
+ * start together; a line with fewer fields lets its last rule run on.
+ */
+function FieldGrid({
+  rows,
+  labelMin = LABEL_MIN,
+  pitchScale = 1,
+}: {
+  rows: Row[]
+  labelMin?: number
+  pitchScale?: number
+}) {
+  const across = Math.max(1, ...rows.map((r) => (r === "gap" || r.own ? 1 : r.labels.length)))
+  const columns = Array.from({ length: across }, (_, i) => {
+    const min = i === 0 ? labelMin : across === 2 ? LABEL_MIN_RIGHT : 0
+    return `minmax(${min}pt, max-content) minmax(0, 1fr)`
+  }).join(" ")
+  const pitch = PITCH * pitchScale
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: columns,
+        gridTemplateRows: rows.map((r) => (r === "gap" ? `${GROUP_GAP}pt` : `${pitch}pt`)).join(" "),
+        fontSize: `${FONT.body}pt`,
+      }}
+    >
+      {rows.map((r, y) => {
+        if (r === "gap") {
+          return <div key={y} style={{ gridColumn: "1 / -1", height: `${GROUP_GAP}pt`, alignSelf: "start" }} />
+        }
+        if (r.own) {
+          // A line of its own: label, then a rule for the rest of the line.
+          return (
+            <div key={y} style={{ gridColumn: "1 / -1", display: "flex", alignItems: "flex-end", height: `${pitch}pt` }}>
+              <span style={{ ...labelStyle, height: "auto", paddingRight: `${LABEL_GAP}pt` }}>
+                <Label text={r.labels[0]} />
+              </span>
+              <span style={{ flex: 1, minWidth: 0, height: `${pitch}pt`, boxSizing: "border-box", borderBottom: STROKE }} />
+            </div>
+          )
+        }
+        return r.labels.map((label, x) => {
+          const last = x === r.labels.length - 1
+          const ruleEnd = last && !r.short ? "-1" : String(x * 2 + 3)
+          return [
+            <div
+              key={`${y}-${x}-l`}
+              style={{
+                ...labelStyle,
+                height: `${pitch}pt`,
+                gridColumn: String(x * 2 + 1),
+                paddingLeft: x > 0 ? `${CELL_GAP}pt` : 0,
+                paddingRight: `${LABEL_GAP}pt`,
+              }}
+            >
+              <span>
+                <Label text={label} />
+              </span>
+            </div>,
+            <Rule key={`${y}-${x}-r`} column={`${x * 2 + 2} / ${ruleEnd}`} />,
+          ]
+        })
+      })}
+    </div>
+  )
+}
+
+/** A printable check box: a drawn square, not the browser's, so it prints the same everywhere. */
+function CheckBox() {
+  return (
+    <span
+      style={{
+        flex: "none",
+        width: "9pt",
+        height: "9pt",
+        marginTop: "1pt",
+        boxSizing: "border-box",
+        border: STROKE,
+      }}
+    />
+  )
+}
+
+/** Reason options stacked top to bottom, then three writing lines for anything to add. */
+function Reason({ options }: { options: string[] }) {
+  return (
+    <div>
+      <div style={{ fontWeight: 700, fontSize: `${FONT.heading}pt` }}>REASON:</div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "5pt",
+          padding: "6pt 0 6pt 14pt",
+          fontSize: `${FONT.body}pt`,
+        }}
+      >
+        {options.map((o) => (
+          <div key={o} style={{ display: "flex", alignItems: "flex-start", gap: "7pt", lineHeight: 1.25 }}>
+            <CheckBox />
+            <span>{o}</span>
+          </div>
+        ))}
+      </div>
+      {/* Three writing lines, no frame around them. */}
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} style={{ height: `${PITCH}pt`, borderBottom: STROKE }} />
       ))}
     </div>
   )
 }
 
-function RenderBlock({
-  block,
-  rowHeight,
-  inBox = false,
-  fill = false,
+function Box({
+  title,
+  rows,
+  labelMin = LABEL_MIN,
 }: {
-  block: Block
-  rowHeight: number
-  inBox?: boolean
-  /** A box in a pair shares the row's width; a lone one keeps its own height. */
-  fill?: boolean
+  title: string
+  rows: Row[]
+  labelMin?: number
 }) {
-  switch (block.kind) {
-    case "row":
-      return <Row fields={block.fields} height={rowHeight} />
-
-    case "heading":
-      return (
-        <div style={{ fontWeight: 700, fontSize: "9.5pt", marginTop: "2pt" }}>
-          {block.text}
-        </div>
-      )
-
-    case "checks":
-      return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            gap: "3pt 10pt",
-            paddingLeft: inBox ? 0 : "6pt",
-            fontWeight: 700,
-          }}
-        >
-          {block.label && <span>{block.label}</span>}
-          {block.options.map((o) => (
-            <Check key={o} text={o} />
-          ))}
-        </div>
-      )
-
-    case "box":
-      return (
-        <div
-          style={{
-            border: BOX,
-            padding: "4pt 7pt 3pt",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1pt",
-            flex: fill ? 1 : "none",
-            minWidth: 0,
-          }}
-        >
-          {block.title && (
-            <div style={{ fontWeight: 700, fontSize: "9.5pt" }}>{block.title}</div>
-          )}
-          {block.blocks.map((b, i) => (
-            <RenderBlock key={i} block={b} rowHeight={rowHeight - 1} inBox />
-          ))}
-        </div>
-      )
-
-    case "pair":
-      return (
-        <div style={{ display: "flex", gap: "8pt", alignItems: "stretch" }}>
-          <RenderBlock block={block.left} rowHeight={rowHeight} fill />
-          <RenderBlock block={block.right} rowHeight={rowHeight} fill />
-        </div>
-      )
-
-    case "ruled":
-      // The writing area soaks up whatever height the sheet has left over, so
-      // the sparse forms end where the dense ones do.
-      return (
-        <div
-          style={{
-            flex: 1,
-            minHeight: "56pt",
-            border: BOX,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-evenly",
-          }}
-        >
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} style={{ borderBottom: RULE, margin: "0 5pt" }} />
-          ))}
-        </div>
-      )
-
-    case "signature":
-      return (
-        <div style={{ marginTop: "auto", paddingTop: "22pt" }}>
-          <div style={{ width: "70%", margin: "0 auto", borderTop: RULE }} />
-          <div
-            style={{
-              textAlign: "center",
-              fontWeight: 700,
-              fontSize: "7.5pt",
-              paddingTop: "2pt",
-            }}
-          >
-            APPLICANT&rsquo;S SIGNATURE OVER PRINTED NAME
-          </div>
-        </div>
-      )
-
-    case "statements":
-      return (
-        <div style={{ fontSize: "6.8pt", lineHeight: 1.25, textAlign: "justify" }}>
-          {STATEMENTS.map((s) => (
-            <p key={s} style={{ margin: "0 0 1.5pt" }}>
-              {s}
-            </p>
-          ))}
-        </div>
-      )
-  }
-}
-
-function Letterhead({ title }: { title: string }) {
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "12pt",
-          paddingBottom: "3pt",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "3pt" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo1.png" alt="" style={{ height: "30pt" }} />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo2.png" alt="" style={{ height: "30pt" }} />
-        </div>
-        <div style={{ textAlign: "center", fontWeight: 700, lineHeight: 1.25 }}>
-          <div style={{ fontSize: "8.5pt", fontWeight: 700 }}>
-            Republic of the Philippines
-          </div>
-          <div style={{ fontSize: "10pt" }}>CITY GOVERNMENT OF OZAMIZ</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "3pt" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo3.png" alt="" style={{ height: "28pt" }} />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo4.png" alt="" style={{ height: "23pt" }} />
-        </div>
+    <section style={{ border: STROKE, padding: "7pt 8pt 7pt" }}>
+      <div style={{ ...HEADING, paddingBottom: "2pt" }}>
+        {title}
       </div>
-      <div
-        style={{
-          padding: "5pt 0 3pt",
-          textAlign: "center",
-          fontWeight: 700,
-          fontSize: "15pt",
-          whiteSpace: "nowrap",
-        }}
-      >
-        APPLICATION FORM : {title}
-      </div>
-    </div>
+      {/* The box is inset, so its labels give back the inset and the rules still line up with the page's. */}
+      <FieldGrid rows={rows} labelMin={labelMin - BOX_INSET} />
+    </section>
   )
 }
 
-/** One form, filling the half of the page it is given. */
-function FormPanel({
-  def,
-  side,
-}: {
-  def: FormDefinition
-  side: "top" | "bottom"
-}) {
+/** Old and new side by side in one frame, split down the middle. */
+function Compare({ left, right }: { left: Panel; right: Panel }) {
   return (
-    <section
-      style={{
-        flex: 1,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-        gap: "4pt",
-        boxSizing: "border-box",
-        padding:
-          side === "top"
-            ? `${MARGIN_OUTER - 6}pt ${MARGIN_OUTER}pt ${MARGIN_CUT}pt`
-            : `${MARGIN_CUT}pt ${MARGIN_OUTER}pt ${MARGIN_OUTER - 6}pt`,
-        // The cut line, printed across the middle so it needs no ruler.
-        borderTop: side === "bottom" ? "0.5pt dashed #888" : undefined,
-        // Its own stacking context, so the seal can sit behind the form's
-        // writing without ever dropping behind the sheet's white.
-        position: "relative",
-        zIndex: 0,
-        isolation: "isolate",
-      }}
-    >
-      {/* Backdrop seal. Multiply drops the JPEG's white square into the paper,
-          leaving only the seal, tinted back by the opacity so handwriting and
-          photocopies stay legible over it. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/city-seal.jpg"
-        alt=""
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          width: "250pt",
-          height: "250pt",
-          transform: "translate(-50%, -50%)",
-          opacity: 0.12,
-          mixBlendMode: "multiply",
-          zIndex: -1,
-          pointerEvents: "none",
-        }}
-      />
-      <Letterhead title={def.title} />
-      {def.blocks.map((b, i) => (
-        <RenderBlock key={i} block={b} rowHeight={def.rowHeight} />
+    <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: STROKE }}>
+      {[left, right].map((p, i) => (
+        <div
+          key={p.title}
+          style={{
+            minWidth: 0,
+            padding: "7pt 8pt 7pt",
+            borderLeft: i === 1 ? STROKE : undefined,
+          }}
+        >
+          <div style={{ ...HEADING, paddingBottom: "2pt" }}>
+            {p.title}
+          </div>
+          <FieldGrid rows={p.rows} labelMin={100} pitchScale={1.1} />
+        </div>
       ))}
     </section>
   )
 }
 
-/** The sheet: two identical copies of the chosen form, one above the other. */
+function Signature() {
+  return (
+    <div style={{ padding: "26pt 0 0", textAlign: "center" }}>
+      <div style={{ width: "240pt", margin: "0 auto", borderTop: STROKE }} />
+      <div
+        style={{
+          fontWeight: 700,
+          fontSize: "9pt",
+          letterSpacing: "0.2pt",
+          paddingTop: "3pt",
+        }}
+      >
+        APPLICANT&rsquo;S SIGNATURE OVER PRINTED NAME
+      </div>
+    </div>
+  )
+}
+
+/** The declaration beneath the signature: small, but set to be read. */
+function Statements() {
+  return (
+    <div style={{ fontSize: `${FONT.statement}pt`, lineHeight: 1.45, textAlign: "left" }}>
+      {STATEMENTS.map((s) => (
+        <p key={s} style={{ margin: "0 0 3pt" }}>
+          {s}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function RenderBlock({ block }: { block: Block }) {
+  switch (block.kind) {
+    case "fields":
+      return <FieldGrid rows={block.rows} labelMin={block.labelMin} />
+    case "box":
+      return (
+        <div style={{ marginTop: block.spaceBefore ? `${block.spaceBefore}pt` : undefined }}>
+          <Box title={block.title} rows={block.rows} labelMin={block.labelMin} />
+        </div>
+      )
+    case "compare":
+      return <Compare left={block.left} right={block.right} />
+    case "reason":
+      return <Reason options={block.options} />
+    case "signature":
+      return <Signature />
+    case "statements":
+      return <Statements />
+  }
+}
+
+/** Logos keep their own aspect ratios; only the height is set. */
+function Logo({ src, height }: { src: string; height: number }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" style={{ display: "block", height: `${height}pt`, width: "auto" }} />
+}
+
+/**
+ * The same head on every form: logos either side of the city's name, a rule,
+ * the form's title between two rules, and the control number the office fills
+ * in on receipt. The side groups share the width equally, so the name stays on
+ * the page's centre line however wide the logos on either side are.
+ */
+function FormHeader({ title }: { title: string }) {
+  return (
+    <header>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto 1fr",
+          alignItems: "center",
+          columnGap: "8pt",
+          paddingBottom: "6pt",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "5pt" }}>
+          <Logo src="/logo1.png" height={44} />
+          <Logo src="/logo2.png" height={44} />
+        </div>
+        <div style={{ textAlign: "center", whiteSpace: "nowrap", lineHeight: 1.25 }}>
+          <div style={{ fontSize: "12pt" }}>Republic of the Philippines</div>
+          <div style={{ fontSize: "15.5pt", fontWeight: 700 }}>CITY GOVERNMENT OF OZAMIZ</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "5pt" }}>
+          <Logo src="/logo3.png" height={44} />
+          <Logo src="/logo4.png" height={28} />
+        </div>
+      </div>
+      <div style={{ borderTop: STROKE }} />
+      <div
+        style={{
+          padding: "7pt 0 0",
+          textAlign: "center",
+          fontWeight: 700,
+          fontSize: `${FONT.title}pt`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        APPLICATION FORM : {title}
+      </div>
+      {/* Filled in by the office on receipt. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "flex-end",
+          paddingTop: "5pt",
+          fontSize: `${FONT.body}pt`,
+          fontWeight: 700,
+          lineHeight: 1.1,
+        }}
+      >
+        <span style={{ whiteSpace: "nowrap", paddingRight: `${LABEL_GAP}pt` }}>Control No.:</span>
+        <span style={{ width: "130pt", height: `${PITCH - 4}pt`, boxSizing: "border-box", borderBottom: STROKE }} />
+      </div>
+    </header>
+  )
+}
+
+/** The city seal behind the form: there for the paper's sake, not the reader's. */
+function Watermark() {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/city-seal.jpg"
+      alt=""
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: "148mm",
+        height: "148mm",
+        transform: "translate(-50%, -50%)",
+        // Multiply drops the JPEG's white square into the paper, leaving only
+        // the seal, tinted back by the opacity so handwriting and photocopies
+        // stay legible over it.
+        opacity: 0.05,
+        mixBlendMode: "multiply",
+        zIndex: -1,
+        pointerEvents: "none",
+      }}
+    />
+  )
+}
+
+/** The sheet: the chosen form, one to an A4 page. */
 export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
   const def = FORMS[type]
 
@@ -547,20 +683,37 @@ export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
     <div
       className="mtop-form-sheet"
       style={{
-        display: "flex",
-        flexDirection: "column",
         width: SHEET_W,
         height: SHEET_H,
         background: "#fff",
         color: "#000",
         fontFamily: SANS,
-        fontSize: "8.5pt",
+        fontSize: `${FONT.body}pt`,
         boxSizing: "border-box",
         overflow: "hidden",
       }}
     >
-      <FormPanel def={def} side="top" />
-      <FormPanel def={def} side="bottom" />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${BLOCK_GAP}pt`,
+          boxSizing: "border-box",
+          height: "100%",
+          padding: `${MARGIN_TOP} ${MARGIN_X} ${MARGIN_BOTTOM}`,
+          // Its own stacking context, so the seal can sit behind the form's
+          // writing without ever dropping behind the sheet's white.
+          position: "relative",
+          zIndex: 0,
+          isolation: "isolate",
+        }}
+      >
+        <Watermark />
+        <FormHeader title={def.title} />
+        {def.blocks.map((b, i) => (
+          <RenderBlock key={i} block={b} />
+        ))}
+      </div>
     </div>
   )
 }

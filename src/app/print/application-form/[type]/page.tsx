@@ -54,7 +54,7 @@ export default async function PrintApplicationFormPage({
       <PrintControls
         title="Application Form"
         subject={title}
-        hint="Two copies to a sheet — cut along the dashed line. Print on A4, portrait, at 100% scale, margins none, background graphics on."
+        hint="One form to a sheet. Print on A4, portrait, at 100% scale, margins none, background graphics on."
         actions={<DownloadPdfButton filename={`printable-form-${type}`} />}
       />
       <div className="card-stage">
