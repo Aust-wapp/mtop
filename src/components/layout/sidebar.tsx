@@ -24,6 +24,7 @@ import {
   Settings,
   Building2,
   Printer,
+  ContactRound,
 } from "lucide-react"
 
 interface NavItem {
@@ -36,6 +37,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Applications", href: "/dashboard/applications", icon: FileText },
+  {
+    title: "MTOP Operators",
+    href: "/dashboard/operators",
+    icon: ContactRound,
+  },
   {
     title: "Negative List",
     href: "/dashboard/negative-list",
