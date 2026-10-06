@@ -12,6 +12,10 @@ import {
 } from "@/components/ui/card"
 import { Loader2, Search, ArrowLeft, ChevronRight } from "lucide-react"
 import { searchFranchises } from "@/lib/actions/applications"
+import {
+  EXPIRED_FRANCHISE_MESSAGE,
+  isBlockedByExpiry,
+} from "@/lib/utils/permit-expiration"
 import type { MtopFranchise, TransactionType } from "@/types/database"
 
 export type FranchiseSearchHit = MtopFranchise & {
@@ -118,7 +122,9 @@ export function FranchiseLookup({
                     ? "Franchise has not been granted yet"
                     : f.franchise_status !== "active"
                       ? `Franchise is ${f.franchise_status}`
-                      : ""
+                      : isBlockedByExpiry(f.granted_until, transactionType.code)
+                        ? EXPIRED_FRANCHISE_MESSAGE
+                        : ""
                 const validThroughLabel =
                   f.franchise_status === "active"
                     ? "Expires"
