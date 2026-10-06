@@ -56,6 +56,29 @@ export function getExpirationStatus(
   return { status, expirationDate, daysRemaining }
 }
 
+/** The only transactions that may be newly filed against an expired franchise. */
+const ALLOWED_WHEN_EXPIRED: readonly string[] = ["renewal", "closure"]
+
+export const EXPIRED_FRANCHISE_MESSAGE =
+  "This franchise is expired. Only Renewal or Closure applications are allowed."
+
+/**
+ * Whether filing this transaction against a franchise is refused because the
+ * franchise has expired. Shared by the franchise lookup and
+ * createFranchiseTransaction so both apply the same exemption.
+ *
+ * The renewal window only separates "active" from "due_for_renewal", never
+ * "expired", so it is irrelevant here.
+ */
+export function isBlockedByExpiry(
+  grantedUntil: string | Date | null | undefined,
+  transactionCode: string
+): boolean {
+  if (!grantedUntil) return false
+  if (ALLOWED_WHEN_EXPIRED.includes(transactionCode)) return false
+  return getExpirationStatus(grantedUntil, 0).status === "expired"
+}
+
 /**
  * The same three statuses expressed as bounds on the `granted_until` column,
  * so a list can be filtered in the database instead of after paging.
