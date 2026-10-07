@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { hasPermission } from "@/lib/permissions"
+import type { FranchiseStatus, MtopStatus } from "@/types/database"
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -14,6 +15,171 @@ async function getAuthUser() {
 }
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+export type OperatorDirectoryStatus = "all" | "active" | "inactive"
+
+export interface OperatorDirectoryRecord {
+  id: string
+  mtop_number: string
+  applicant_name: string
+  franchise_status: FranchiseStatus
+  plate_number: string | null
+  contact_number: string | null
+  date_granted: string | null
+  latest_transaction: {
+    name: string
+    status: MtopStatus
+    submitted_at: string
+  } | null
+}
+
+const OPERATOR_PAGE_SIZE = 20
+
+function embeddedOne<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value
+}
+
+function operatorSearchFilter(term: string): string {
+  const escaped = term.replace(/[\\%_"]/g, (character) => `\\${character}`)
+  return ["mtop_number", "applicant_name", "plate_number"]
+    .map((field) => `${field}.ilike."%${escaped}%"`)
+    .join(",")
+}
+
+/**
+ * Lists numbered MTOP records and batches their application metadata for the
+ * current page. An assigned MTOP number is written by the grant function, so
+ * drafts and applications that were never granted cannot enter this directory.
+ */
+export async function getOperators({
+  search = "",
+  status = "all",
+  page = 1,
+}: {
+  search?: string
+  status?: OperatorDirectoryStatus
+  page?: number
+} = {}): Promise<{
+  error: string | null
+  data: OperatorDirectoryRecord[]
+  count: number
+}> {
+  try {
+    const { supabase } = await getAuthUser()
+    const currentPage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
+    const from = (currentPage - 1) * OPERATOR_PAGE_SIZE
+
+    let query = supabase
+      .schema("mtop")
+      .from("mtop_franchises")
+      .select(
+        "id, mtop_number, applicant_name, franchise_status, plate_number, contact_number",
+        { count: "exact" }
+      )
+      .not("mtop_number", "is", null)
+      .order("mtop_number", { ascending: false })
+      .range(from, from + OPERATOR_PAGE_SIZE - 1)
+
+    if (status === "active") {
+      query = query.eq("franchise_status", "active")
+    } else if (status === "inactive") {
+      query = query.neq("franchise_status", "active")
+    }
+
+    if (search.trim()) {
+      query = query.or(operatorSearchFilter(search.trim()))
+    }
+
+    const { data: franchises, count, error } = await query
+    if (error) return { error: error.message, data: [], count: 0 }
+
+    const records = (franchises ?? []) as Pick<
+      OperatorDirectoryRecord,
+      | "id"
+      | "mtop_number"
+      | "applicant_name"
+      | "franchise_status"
+      | "plate_number"
+      | "contact_number"
+    >[]
+    if (records.length === 0) {
+      return { error: null, data: [], count: count ?? 0 }
+    }
+
+    const { data: applications, error: applicationsError } = await supabase
+      .schema("mtop")
+      .from("mtop_applications")
+      .select(
+        "franchise_id, status, submitted_at, granted_at, transaction_type:transaction_types(code, name, grant_effect)"
+      )
+      .in(
+        "franchise_id",
+        records.map((record) => record.id)
+      )
+      .order("submitted_at", { ascending: false })
+
+    if (applicationsError) {
+      return { error: applicationsError.message, data: [], count: 0 }
+    }
+
+    type ApplicationMetadata = {
+      franchise_id: string
+      status: MtopStatus
+      submitted_at: string
+      granted_at: string | null
+      transaction_type:
+        | { code: string; name: string; grant_effect: string }
+        | { code: string; name: string; grant_effect: string }[]
+        | null
+    }
+
+    const applicationsByFranchise = new Map<string, ApplicationMetadata[]>()
+    for (const application of (applications ?? []) as unknown as ApplicationMetadata[]) {
+      const group = applicationsByFranchise.get(application.franchise_id) ?? []
+      group.push(application)
+      applicationsByFranchise.set(application.franchise_id, group)
+    }
+
+    const data = records.map((record): OperatorDirectoryRecord => {
+      const related = applicationsByFranchise.get(record.id) ?? []
+      const latest = related[0]
+      const initialGrant = related
+        .filter((application) => {
+          const transaction = embeddedOne(application.transaction_type)
+          return (
+            application.status === "granted" &&
+            transaction?.grant_effect === "issue_number" &&
+            application.granted_at
+          )
+        })
+        .sort((left, right) =>
+          (left.granted_at ?? "").localeCompare(right.granted_at ?? "")
+        )[0]
+      const latestType = latest ? embeddedOne(latest.transaction_type) : null
+
+      return {
+        ...record,
+        date_granted: initialGrant?.granted_at ?? null,
+        latest_transaction:
+          latest && latestType
+            ? {
+                name: latestType.name,
+                status: latest.status,
+                submitted_at: latest.submitted_at,
+              }
+            : null,
+      }
+    })
+
+    return { error: null, data, count: count ?? 0 }
+  } catch (error) {
+    return {
+      error: (error as Error).message,
+      data: [],
+      count: 0,
+    }
+  }
+}
 
 /**
  * The franchise really does belong to this application, and the permit has not
@@ -183,7 +349,9 @@ export async function getFranchise(id: string) {
       supabase
         .schema("mtop")
         .from("mtop_applications")
-        .select("*, transaction_type:transaction_types(id, code, name)")
+        .select(
+          "*, transaction_type:transaction_types(id, code, name, grant_effect)"
+        )
         .eq("franchise_id", id)
         .order("submitted_at", { ascending: false }),
     ])

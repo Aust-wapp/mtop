@@ -24,6 +24,10 @@ import {
 import { reopenTargetStage, remarksRequiredMessage } from "@/lib/application-flow"
 import { composeAddress } from "@/lib/address"
 import { hasPermission } from "@/lib/permissions"
+import {
+  EXPIRED_FRANCHISE_MESSAGE,
+  isBlockedByExpiry,
+} from "@/lib/utils/permit-expiration"
 import type {
   MtopStatus,
   TransactionType,
@@ -439,6 +443,12 @@ export async function createFranchiseTransaction(
         error: `This franchise is ${franchise.franchise_status} and cannot file new transactions.`,
         data: null,
       }
+    }
+
+    // An expired franchise may only file a renewal or a closure. Checked before
+    // anything below writes to the franchise.
+    if (isBlockedByExpiry(franchise.granted_until, transactionType.code)) {
+      return { error: EXPIRED_FRANCHISE_MESSAGE, data: null }
     }
 
     // The renewal window is a renewal rule. An annual confirmation, a change of

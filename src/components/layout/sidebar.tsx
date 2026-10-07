@@ -23,6 +23,8 @@ import {
   Users,
   Settings,
   Building2,
+  Printer,
+  ContactRound,
 } from "lucide-react"
 
 interface NavItem {
@@ -35,6 +37,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Applications", href: "/dashboard/applications", icon: FileText },
+  {
+    title: "MTOP Operators",
+    href: "/dashboard/operators",
+    icon: ContactRound,
+  },
   {
     title: "Negative List",
     href: "/dashboard/negative-list",
@@ -60,6 +67,12 @@ const adminItems: NavItem[] = [
     title: "Associations",
     href: "/dashboard/admin/associations",
     icon: Building2,
+    permissions: ["admin.manage"],
+  },
+  {
+    title: "Printable Forms",
+    href: "/dashboard/admin/printable-forms",
+    icon: Printer,
     permissions: ["admin.manage"],
   },
   {

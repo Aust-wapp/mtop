@@ -41,7 +41,7 @@ import { format } from "date-fns"
 import { updateApplicationStatus, reopenApplication } from "@/lib/actions/applications"
 import { checkNegativeList } from "@/lib/actions/requirements"
 import { usePermissions } from "@/lib/hooks/use-permissions"
-import { getExpirationStatus } from "@/lib/utils/permit-expiration"
+import { getFranchiseStatusDisplay } from "@/lib/utils/franchise-status"
 import { cn } from "@/lib/utils"
 import { isBlocking } from "@/lib/requirements"
 import { InfoItem } from "@/components/shared/info-item"
@@ -52,6 +52,7 @@ import {
   stagePermission,
 } from "@/lib/application-flow"
 import { ExpirationBadge } from "@/components/shared/expiration-badge"
+import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
 import type { MtopStatus } from "@/types/database"
 import type { FranchiseHistoryEvent } from "@/lib/audit"
 import type { SystemSettings } from "@/lib/actions/settings"
@@ -103,6 +104,27 @@ function confirmFor(
     title: `Forward to ${stageName(status)}?`,
     description: `The application moves on to ${stageName(status)}.`,
     confirmLabel: "Forward",
+  }
+}
+
+function grantedTransactionLabel(code?: string, name?: string): string {
+  switch (code) {
+    case "new_franchise":
+      return "MTOP Granted"
+    case "renewal":
+      return "Renewal Granted"
+    case "change_unit":
+      return "Change Unit Granted"
+    case "change_ownership":
+      return "Change Ownership Granted"
+    case "closure":
+      return "Closure Granted"
+    case "annual_confirmation":
+      return "Confirmation Granted"
+    case "reissuance":
+      return "Re-Issuance Granted"
+    default:
+      return `${name ?? "Application"} Granted`
   }
 }
 
@@ -222,6 +244,15 @@ export function ApplicationDetail({
 
   const requirements = application.requirements ?? []
   const transactionType = application.transaction_type
+  const franchiseStatusDisplay = getFranchiseStatusDisplay(
+    franchise?.franchise_status,
+    franchise?.granted_until,
+    settings.renewal_window_days
+  )
+  const grantedTransactionTitle = grantedTransactionLabel(
+    transactionType?.code,
+    transactionType?.name
+  )
   // Only mandatory, non-conditional items gate the forward button.
   const blockingItems = requirements.filter(isBlocking)
   const blockingCleared = blockingItems.filter(
@@ -291,14 +322,45 @@ export function ApplicationDetail({
         </Alert>
       )}
 
-      {/* Granted Banner with Expiration Info */}
+      {/* The application result and the current franchise state are distinct. */}
       {application.status === "granted" && (() => {
-        const expirationInfo = franchise?.granted_until
-          ? getExpirationStatus(
-              franchise.granted_until,
-              settings.renewal_window_days
-            )
+        const expirationInfo = franchiseStatusDisplay.expiration
+        const grantedOn = application.granted_at
+          ? format(new Date(application.granted_at), "MMMM d, yyyy")
           : null
+
+        if (
+          franchise?.franchise_status &&
+          !franchiseStatusDisplay.isActive
+        ) {
+          const statusLabel = franchiseStatusDisplay.statusLabel ??
+            franchise.franchise_status
+
+          return (
+            <Alert className="border-slate-200 bg-slate-50">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertTitle className="flex items-center gap-2 text-slate-800">
+                {grantedTransactionTitle}
+                <FranchiseStatusBadge status={franchise.franchise_status} />
+              </AlertTitle>
+              <AlertDescription className="text-slate-700">
+                {transactionType?.code === "closure" ? (
+                  <>
+                    This closure application was granted
+                    {grantedOn ? ` on ${grantedOn}` : ""}. The franchise is
+                    now closed.
+                  </>
+                ) : (
+                  <>
+                    This {transactionType?.name?.toLowerCase() ?? "transaction"}
+                    {grantedOn ? ` was granted on ${grantedOn}` : " was granted"}.
+                    The franchise is currently {statusLabel.toLowerCase()}.
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          )
+        }
 
         return (
           <>
@@ -336,17 +398,14 @@ export function ApplicationDetail({
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertTitle className="text-green-800 flex items-center gap-2">
-                  MTOP Granted
+                  {grantedTransactionTitle}
                   {expirationInfo && (
                     <ExpirationBadge status="active" daysRemaining={expirationInfo.daysRemaining} />
                   )}
                 </AlertTitle>
                 <AlertDescription className="text-green-700">
-                  This application has been approved and the MTOP permit has been
-                  granted
-                  {application.granted_at &&
-                    ` on ${format(new Date(application.granted_at), "MMMM d, yyyy")}`}
-                  .
+                  This {transactionType?.name?.toLowerCase() ?? "application"}
+                  {grantedOn ? ` was granted on ${grantedOn}` : " was granted"}.
                   {expirationInfo && (
                     <> Expires on {format(expirationInfo.expirationDate, "MMMM d, yyyy")}.</>
                   )}
@@ -661,7 +720,12 @@ export function ApplicationDetail({
               )}
               {application.status === "granted" && franchise?.granted_until && (
                 <SummaryRow
-                  label="Expires"
+                  label={
+                    franchise?.franchise_status &&
+                    !franchiseStatusDisplay.isActive
+                      ? franchiseStatusDisplay.historicalValidityLabel
+                      : "Expires"
+                  }
                   value={format(new Date(franchise.granted_until), "MMM d, yyyy")}
                 />
               )}
