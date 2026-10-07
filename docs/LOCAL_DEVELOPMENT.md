@@ -70,15 +70,10 @@ are signed out and returned to `/auth?error=unauthorized`.
 To inspect the current migration head without changing data, run
 `docker exec supabase_db_mtop psql -U postgres -d postgres -Atc "select max(version) from supabase_migrations.schema_migrations"`.
 
-## Downloading blank application PDFs
+## Printable application forms
 
-From **Admin → Print Forms**, open a blank form in a new tab. Its **Download
-PDF** action renders the same two-up A4 print page and downloads a one-page
-PDF. The server uses a local headless browser for this action. On this Windows
-laptop it finds Microsoft Edge automatically. Elsewhere, set the server-only
-`MTOP_PDF_BROWSER_PATH` environment variable to a Chrome, Edge, or Chromium
-executable. If Next.js cannot reach itself at `http://localhost:3000`, set
-`MTOP_PDF_BASE_URL` to the trusted application origin. Never use a
-request-supplied URL for that setting: the renderer forwards the signed-in
-user's cookies to the protected preview. These settings contain no OAuth
-secret. The Print button remains available when no server browser is installed.
+Administrators can open the retained team forms from **Admin → Printable
+Forms**. Each form opens in a new tab as a single A4 portrait sheet. Use the
+page's **Print** action to print or save it as a PDF, or use **Download PDF**
+to save the preview directly. These forms are blank and do not update
+application records.

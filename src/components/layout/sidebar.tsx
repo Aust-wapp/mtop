@@ -76,12 +76,6 @@ const adminItems: NavItem[] = [
     permissions: ["admin.manage"],
   },
   {
-    title: "Print Forms",
-    href: "/dashboard/forms",
-    icon: FileText,
-    permissions: ["application.view"],
-  },
-  {
     title: "Settings",
     href: "/dashboard/admin/settings",
     icon: Settings,
