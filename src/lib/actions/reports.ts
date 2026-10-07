@@ -1,6 +1,11 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { feeLinesFromStoredAssessment, type FeeKey } from "@/lib/fees"
+
+function firstRelation<T>(relation: T | T[] | null | undefined): T | null {
+  return Array.isArray(relation) ? relation[0] ?? null : relation ?? null
+}
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -48,9 +53,10 @@ export async function getRevenueSummary(fiscalYear?: number) {
         `filing_fee, supervision_fee, confirmation_fee, mayors_permit_fee,
          franchise_fee, police_clearance_fee, health_fee, legal_research_fee,
          parking_fee, late_renewal_penalty, change_of_motor_fee,
-         replacement_plate_fee, annual_confirmation_fee, reissuance_fee,
-         certification_fee, closure_fee, total_amount,
-         application:mtop_applications!application_id(fiscal_year)`
+         replacement_plate_fee, certification_fee, closure_fee, total_amount,
+         application:mtop_applications!application_id(
+           fiscal_year, transaction_type:transaction_types(code)
+         )`
       )
       .not("approved_at", "is", null)
 
@@ -59,10 +65,11 @@ export async function getRevenueSummary(fiscalYear?: number) {
     // Filter by fiscal year and sum
     const filtered = (data ?? []).filter(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (a: any) => a.application?.fiscal_year === year
+      (assessment: any) =>
+        firstRelation(assessment.application)?.fiscal_year === year
     )
 
-    const feeKeys = [
+    const feeKeys: FeeKey[] = [
       "filing_fee",
       "supervision_fee",
       "confirmation_fee",
@@ -75,8 +82,8 @@ export async function getRevenueSummary(fiscalYear?: number) {
       "late_renewal_penalty",
       "change_of_motor_fee",
       "replacement_plate_fee",
-      "annual_confirmation_fee",
-      "reissuance_fee",
+      "annual_confirmation_transaction_fee",
+      "reissuance_transaction_fee",
       "certification_fee",
       "closure_fee",
     ]
@@ -84,10 +91,17 @@ export async function getRevenueSummary(fiscalYear?: number) {
     const summary: Record<string, number> = {}
     let grandTotal = 0
 
-    for (const key of feeKeys) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sum = filtered.reduce((s: number, row: any) => s + Number(row[key] ?? 0), 0)
-      summary[key] = sum
+    for (const key of feeKeys) summary[key] = 0
+
+    for (const row of filtered) {
+      const application = firstRelation(row.application)
+      const transactionType = firstRelation(application?.transaction_type)
+      const transactionCode = transactionType?.code
+      const feeLines = feeLinesFromStoredAssessment(row, transactionCode)
+
+      for (const key of feeKeys) {
+        summary[key] += feeLines[key]
+      }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     grandTotal = filtered.reduce((s: number, row: any) => s + Number(row.total_amount ?? 0), 0)

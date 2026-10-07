@@ -43,6 +43,8 @@ existing assessment revision flow. Non-applicable lines are read-only. New
 assessment submissions store a new assessment record; approval updates its
 approval metadata. Existing assessment rows and totals are not recalculated,
 and existing assessments display their stored values; revising one starts from
-its recorded applicable values. The migration adds the two new transaction fee
-columns with zero defaults.
+its recorded applicable values. Annual Confirmation and Re-Issuance rows use
+the transaction type and stored assessment total, so their display does not
+require dedicated columns. Closure fees use the existing certification and
+closure columns.
 Payment and revenue reporting continue to consume the stored assessment total.

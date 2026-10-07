@@ -29,6 +29,7 @@ import {
   FEE_LABELS,
   calculateFeeTotal,
   calculateLatePenalty,
+  feeLinesFromStoredAssessment,
   feeScheduleFor,
   feeKeysFor,
   LOST_PLATE_REPLACEMENT_FEE,
@@ -82,6 +83,7 @@ export function FeeAssessmentForm({
     return (
       <AssessmentResult
         assessment={existingAssessment}
+        transactionCode={transactionCode}
         applicationId={applicationId}
         canApprove={canApproveAssessment}
         status={status}
@@ -130,6 +132,9 @@ function AssessmentFormInner({
   const [error, setError] = useState<string | null>(null)
 
   const applicableFeeKeys = new Set(feeKeysFor(transactionCode))
+  const previousFees = previous
+    ? feeLinesFromStoredAssessment(previous, transactionCode)
+    : null
   const [fees, setFees] = useState<Record<FeeKey, number>>(() => {
     const base = feeScheduleFor(
       transactionCode,
@@ -137,18 +142,12 @@ function AssessmentFormInner({
     )
     if (!previous) return base
     for (const key of applicableFeeKeys) {
-      if (previous[key] !== undefined && previous[key] !== null) {
-        const previousValue = Number(previous[key])
-        if (key === "replacement_plate_fee") {
-          base[key] =
-            previousValue === LOST_PLATE_REPLACEMENT_FEE
-              ? LOST_PLATE_REPLACEMENT_FEE
-              : 0
-          continue
-        }
-
-        base[key] = previousValue
-      }
+      const previousValue = Number(previousFees?.[key] ?? 0)
+      base[key] =
+        key === "replacement_plate_fee" &&
+        previousValue !== LOST_PLATE_REPLACEMENT_FEE
+          ? 0
+          : previousValue
     }
     return base
   })
@@ -177,9 +176,9 @@ function AssessmentFormInner({
     setSubmitting(true)
     setError(null)
 
-    // Every column is sent; the ones this transaction cannot be charged are
-    // simply zero. The action vets the same thing, so a stale form can't
-    // price a closure as a renewal.
+    // The action vets applicability, then stores only columns present in the
+    // upstream assessment table. Annual Confirmation and Re-Issuance remain
+    // represented by the saved total and transaction type.
     const amount = (key: FeeKey) => Number(fees[key] ?? 0)
     const result = await createAssessment(applicationId, {
       filing_fee: amount("filing_fee"),
@@ -194,8 +193,8 @@ function AssessmentFormInner({
       late_renewal_penalty: amount("late_renewal_penalty"),
       change_of_motor_fee: amount("change_of_motor_fee"),
       replacement_plate_fee: amount("replacement_plate_fee"),
-      annual_confirmation_fee: amount("annual_confirmation_fee"),
-      reissuance_fee: amount("reissuance_fee"),
+      annual_confirmation_transaction_fee: amount("annual_confirmation_transaction_fee"),
+      reissuance_transaction_fee: amount("reissuance_transaction_fee"),
       certification_fee: amount("certification_fee"),
       closure_fee: amount("closure_fee"),
     })
@@ -381,6 +380,7 @@ function formatFeeCurrency(amount: number) {
 
 function AssessmentResult({
   assessment,
+  transactionCode,
   applicationId,
   canApprove,
   status,
@@ -388,6 +388,7 @@ function AssessmentResult({
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assessment: any
+  transactionCode?: string | null
   applicationId: string
   canApprove: boolean
   status: MtopStatus
@@ -399,6 +400,7 @@ function AssessmentResult({
   const [error, setError] = useState<string | null>(null)
 
   const isApproved = !!assessment.approved_at
+  const feeLines = feeLinesFromStoredAssessment(assessment, transactionCode)
 
   async function handleApprove() {
     const ok = await guard.confirm({
@@ -461,7 +463,7 @@ function AssessmentResult({
                   {FEE_LABELS[key]}
                 </span>
                 <span className="w-32 text-right tabular-nums">
-                  {formatFeeCurrency(Number(assessment[key] ?? 0))}
+                  {formatFeeCurrency(feeLines[key])}
                 </span>
               </div>
             ))}

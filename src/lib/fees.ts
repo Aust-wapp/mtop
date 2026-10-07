@@ -34,10 +34,16 @@ export const STANDARD_FEE_KEYS = [
 export const TRANSACTION_FEE_KEYS = [
   "change_of_motor_fee",
   "replacement_plate_fee",
-  "annual_confirmation_fee",
-  "reissuance_fee",
+  "annual_confirmation_transaction_fee",
+  "reissuance_transaction_fee",
   "certification_fee",
   "closure_fee",
+] as const
+
+/** These transaction-only rows are derived from the assessment total. */
+export const DERIVED_TRANSACTION_FEE_KEYS = [
+  "annual_confirmation_transaction_fee",
+  "reissuance_transaction_fee",
 ] as const
 
 export const ALL_FEE_KEYS = [
@@ -48,6 +54,13 @@ export const ALL_FEE_KEYS = [
 
 export type FeeKey = (typeof ALL_FEE_KEYS)[number]
 export type FeeSchedule = Record<FeeKey, number>
+type DerivedTransactionFeeKey = (typeof DERIVED_TRANSACTION_FEE_KEYS)[number]
+type PersistedFeeKey = Exclude<FeeKey, DerivedTransactionFeeKey>
+
+const PERSISTED_FEE_KEYS = ALL_FEE_KEYS.filter(
+  (key): key is PersistedFeeKey =>
+    !DERIVED_TRANSACTION_FEE_KEYS.includes(key as DerivedTransactionFeeKey)
+)
 
 export const FEE_LABELS: Record<string, string> = {
   filing_fee: "Filing Fee",
@@ -62,8 +75,8 @@ export const FEE_LABELS: Record<string, string> = {
   late_renewal_penalty: "Late Renewal Penalty",
   change_of_motor_fee: "Change of Motor (Power Train)",
   replacement_plate_fee: "Replacement of Lost Plate",
-  annual_confirmation_fee: "Annual Confirmation Fee",
-  reissuance_fee: "Re-Issuance Fee",
+  annual_confirmation_transaction_fee: "Annual Confirmation Fee",
+  reissuance_transaction_fee: "Re-Issuance Fee",
   certification_fee: "Certification Fee",
   closure_fee: "Payment of Closure",
 }
@@ -81,8 +94,8 @@ const ZERO_FEE_SCHEDULE: FeeSchedule = {
   late_renewal_penalty: 0,
   change_of_motor_fee: 0,
   replacement_plate_fee: 0,
-  annual_confirmation_fee: 0,
-  reissuance_fee: 0,
+  annual_confirmation_transaction_fee: 0,
+  reissuance_transaction_fee: 0,
   certification_fee: 0,
   closure_fee: 0,
 }
@@ -104,10 +117,10 @@ const TRANSACTION_FEE_SCHEDULES: Record<
     change_of_motor_fee: 1000,
   },
   annual_confirmation: {
-    annual_confirmation_fee: 100,
+    annual_confirmation_transaction_fee: 100,
   },
   reissuance: {
-    reissuance_fee: 150,
+    reissuance_transaction_fee: 150,
   },
   closure: {
     certification_fee: 100,
@@ -123,8 +136,8 @@ const APPLICABLE_FEE_KEYS: Record<TransactionTypeCode, readonly FeeKey[]> = {
     ...STANDARD_FEE_KEYS.filter((key) => key !== "parking_fee"),
     "change_of_motor_fee",
   ],
-  annual_confirmation: ["annual_confirmation_fee"],
-  reissuance: ["reissuance_fee"],
+  annual_confirmation: ["annual_confirmation_transaction_fee"],
+  reissuance: ["reissuance_transaction_fee"],
   closure: ["certification_fee", "closure_fee"],
 }
 
@@ -177,6 +190,48 @@ export function calculateFeeTotal(
     (total, key) => total + Number(fees[key] ?? 0),
     0
   )
+}
+
+/**
+ * The upstream assessment table has no columns for annual confirmation or
+ * re-issuance. Their amount is recoverable as the total left after persisted
+ * fee lines, since only one of these rows applies to either transaction.
+ */
+export function feeLinesFromStoredAssessment(
+  assessment: Record<string, unknown>,
+  transactionCode: string | null | undefined
+): FeeSchedule {
+  const fees: FeeSchedule = { ...ZERO_FEE_SCHEDULE }
+
+  for (const key of PERSISTED_FEE_KEYS) {
+    fees[key] = Number(assessment[key] ?? 0)
+  }
+
+  let derivedKey: DerivedTransactionFeeKey | null = null
+  if (transactionCode === "annual_confirmation") {
+    derivedKey = "annual_confirmation_transaction_fee"
+  } else if (transactionCode === "reissuance") {
+    derivedKey = "reissuance_transaction_fee"
+  }
+
+  if (derivedKey) {
+    const totalAmount = Number(assessment.total_amount)
+    const storedSubtotal = calculateFeeTotal(fees)
+    fees[derivedKey] = Number.isFinite(totalAmount)
+      ? Math.max(0, totalAmount - storedSubtotal)
+      : feeScheduleFor(transactionCode)[derivedKey]
+  }
+
+  return fees
+}
+
+/** Strip transaction-derived rows before inserting into the upstream table. */
+export function assessmentFeesForStorage(
+  fees: FeeSchedule
+): Record<PersistedFeeKey, number> {
+  return Object.fromEntries(
+    PERSISTED_FEE_KEYS.map((key) => [key, fees[key]])
+  ) as Record<PersistedFeeKey, number>
 }
 
 export function calculateLatePenalty(

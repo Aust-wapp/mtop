@@ -7,7 +7,12 @@ import {
   type AssessmentFormValues,
 } from "@/lib/schemas/mtop"
 import { hasPermission } from "@/lib/permissions"
-import { calculateFeeTotal, feeKeysFor } from "@/lib/fees"
+import {
+  assessmentFeesForStorage,
+  calculateFeeTotal,
+  feeKeysFor,
+  type FeeSchedule,
+} from "@/lib/fees"
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -66,6 +71,7 @@ export async function createAssessment(
     ) as Record<keyof AssessmentFormValues, number>
 
     const totalAmount = calculateFeeTotal(charged)
+    const storedFees = assessmentFeesForStorage(charged as FeeSchedule)
 
     const { data, error } = await supabase
       .schema("mtop")
@@ -73,22 +79,7 @@ export async function createAssessment(
       .insert({
         application_id: applicationId,
         assessed_by: user.id,
-        filing_fee: charged.filing_fee,
-        supervision_fee: charged.supervision_fee,
-        confirmation_fee: charged.confirmation_fee,
-        mayors_permit_fee: charged.mayors_permit_fee,
-        franchise_fee: charged.franchise_fee,
-        police_clearance_fee: charged.police_clearance_fee,
-        health_fee: charged.health_fee,
-        legal_research_fee: charged.legal_research_fee,
-        parking_fee: charged.parking_fee,
-        late_renewal_penalty: charged.late_renewal_penalty,
-        change_of_motor_fee: charged.change_of_motor_fee,
-        replacement_plate_fee: charged.replacement_plate_fee,
-        annual_confirmation_fee: charged.annual_confirmation_fee,
-        reissuance_fee: charged.reissuance_fee,
-        certification_fee: charged.certification_fee,
-        closure_fee: charged.closure_fee,
+        ...storedFees,
         total_amount: totalAmount,
       })
       .select("id")

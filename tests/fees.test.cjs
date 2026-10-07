@@ -26,6 +26,8 @@ const {
   TRANSACTION_FEE_KEYS,
   calculateFeeTotal,
   calculateLatePenalty,
+  assessmentFeesForStorage,
+  feeLinesFromStoredAssessment,
   feeKeysFor,
   feeScheduleFor,
   isValidLostPlateReplacementFee,
@@ -123,7 +125,7 @@ test("annual confirmation is separate from the standard confirmation fee", () =>
   const fees = feeScheduleFor("annual_confirmation")
 
   assert.equal(fees.confirmation_fee, 0)
-  assert.equal(fees.annual_confirmation_fee, 100)
+  assert.equal(fees.annual_confirmation_transaction_fee, 100)
   assert.equal(sumFees(fees), 100)
   assert.ok(STANDARD_FEE_KEYS.every((key) => fees[key] === 0))
 })
@@ -131,9 +133,55 @@ test("annual confirmation is separate from the standard confirmation fee", () =>
 test("re-issuance charges only its own fee", () => {
   const fees = feeScheduleFor("reissuance")
 
-  assert.equal(fees.reissuance_fee, 150)
+  assert.equal(fees.reissuance_transaction_fee, 150)
   assert.equal(sumFees(fees), 150)
   assert.ok(STANDARD_FEE_KEYS.every((key) => fees[key] === 0))
+})
+
+test("transaction-only rows persist through total and transaction type", () => {
+  const annual = feeScheduleFor("annual_confirmation")
+  const annualStored = assessmentFeesForStorage(annual)
+  const annualTotal = calculateFeeTotal(annual)
+
+  assert.equal(annualStored.annual_confirmation_transaction_fee, undefined)
+  assert.equal(annualTotal, 100)
+  assert.equal(
+    feeLinesFromStoredAssessment(
+      { ...annualStored, total_amount: annualTotal },
+      "annual_confirmation"
+    ).annual_confirmation_transaction_fee,
+    100
+  )
+
+  const reissuance = feeScheduleFor("reissuance")
+  const reissuanceStored = assessmentFeesForStorage(reissuance)
+  const reissuanceTotal = calculateFeeTotal(reissuance)
+
+  assert.equal(reissuanceStored.reissuance_transaction_fee, undefined)
+  assert.equal(reissuanceTotal, 150)
+  assert.equal(
+    feeLinesFromStoredAssessment(
+      { ...reissuanceStored, total_amount: reissuanceTotal },
+      "reissuance"
+    ).reissuance_transaction_fee,
+    150
+  )
+
+  const annualWithLostPlate = {
+    ...annual,
+    replacement_plate_fee: 500,
+  }
+  const annualWithLostPlateStored = assessmentFeesForStorage(annualWithLostPlate)
+  assert.equal(
+    feeLinesFromStoredAssessment(
+      {
+        ...annualWithLostPlateStored,
+        total_amount: calculateFeeTotal(annualWithLostPlate),
+      },
+      "annual_confirmation"
+    ).annual_confirmation_transaction_fee,
+    100
+  )
 })
 
 test("closure shows two distinct fee lines that total ₱600", () => {
