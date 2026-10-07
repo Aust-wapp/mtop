@@ -12,8 +12,6 @@
 
 # testing
 /coverage
-/output/
-/.playwright-cli/
 
 # next.js
 /.next/
@@ -44,4 +42,3 @@ next-env.d.ts
 
 # Supabase CLI scratch files
 supabase/.temp/
-supabase/.branches/

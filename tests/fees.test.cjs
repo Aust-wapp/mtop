@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-require-imports: "off" */
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -182,6 +183,25 @@ test("transaction-only rows persist through total and transaction type", () => {
     ).annual_confirmation_transaction_fee,
     100
   )
+
+  const reissuanceWithLostPlate = {
+    ...reissuance,
+    replacement_plate_fee: 500,
+  }
+  const reissuanceWithLostPlateStored = assessmentFeesForStorage(
+    reissuanceWithLostPlate
+  )
+  const reopenedReissuanceWithLostPlate = feeLinesFromStoredAssessment(
+    {
+      ...reissuanceWithLostPlateStored,
+      total_amount: calculateFeeTotal(reissuanceWithLostPlate),
+    },
+    "reissuance"
+  )
+
+  assert.equal(reopenedReissuanceWithLostPlate.reissuance_transaction_fee, 150)
+  assert.equal(reopenedReissuanceWithLostPlate.replacement_plate_fee, 500)
+  assert.equal(calculateFeeTotal(reopenedReissuanceWithLostPlate), 650)
 })
 
 test("closure shows two distinct fee lines that total ₱600", () => {
