@@ -53,9 +53,10 @@ import {
 } from "@/lib/application-flow"
 import { ExpirationBadge } from "@/components/shared/expiration-badge"
 import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
-import type { MtopStatus } from "@/types/database"
+import type { MtopStatus, TransactionTypeCode } from "@/types/database"
 import type { FranchiseHistoryEvent } from "@/lib/audit"
 import type { SystemSettings } from "@/lib/actions/settings"
+import { FORM_FOR_TRANSACTION } from "@/lib/forms/print-data"
 
 /**
  * What the overlay says while a decision is being recorded. Granting is named
@@ -244,6 +245,9 @@ export function ApplicationDetail({
 
   const requirements = application.requirements ?? []
   const transactionType = application.transaction_type
+  const paperFormKind = transactionType?.code
+    ? FORM_FOR_TRANSACTION[transactionType.code as TransactionTypeCode]
+    : undefined
   const franchiseStatusDisplay = getFranchiseStatusDisplay(
     franchise?.franchise_status,
     franchise?.granted_until,
@@ -278,6 +282,17 @@ export function ApplicationDetail({
               >
                 <History className="h-4 w-4" />
                 Franchise record
+              </Link>
+            )}
+            {paperFormKind && (
+              <Link
+                href={`/print/forms/${paperFormKind}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <Printer className="h-4 w-4" />
+                Print Blank Application Form
               </Link>
             )}
             {application.status === "granted" && (
