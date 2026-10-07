@@ -84,7 +84,6 @@ export function FranchiseTransactionForm({
       make: franchise.make ?? "",
       day_off: franchise.day_off ?? "",
       association_id: franchise.association_id ?? "",
-      due_date: "",
       reason: "",
     },
   })
@@ -314,11 +313,6 @@ export function FranchiseTransactionForm({
                     {...register("association_id")}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="due_date">Due Date (optional)</Label>
-                <Input id="due_date" type="date" {...register("due_date")} />
               </div>
             </CardContent>
           </Card>

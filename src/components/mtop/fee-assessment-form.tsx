@@ -295,16 +295,11 @@ function AssessmentFormInner({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label className="text-sm">{FEE_LABELS.late_renewal_penalty}</Label>
-                {dueDate && (
-                  <p className="text-xs text-muted-foreground">
-                    Due date: {dueDate}
-                  </p>
-                )}
-                {!dueDate && (
-                  <p className="text-xs text-muted-foreground">
-                    No due date set — penalty defaults to ₱0.00
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  {dueDate
+                    ? `Permit expiry: ${dueDate} — charged only for days past it`
+                    : "Applies to a late renewal only"}
+                </p>
               </div>
               <div className="flex items-center gap-1.5 w-32">
                 <span className="text-sm text-muted-foreground">₱</span>
