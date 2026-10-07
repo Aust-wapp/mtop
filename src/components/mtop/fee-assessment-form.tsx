@@ -313,25 +313,37 @@ function AssessmentInputRow({
 
   if (feeKey === "replacement_plate_fee") {
     const checked = value === LOST_PLATE_REPLACEMENT_FEE
+    const checkboxId = `${inputId}-toggle`
 
     return (
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-1 items-center gap-2">
           <Checkbox
-            id={inputId}
+            id={checkboxId}
             checked={checked}
             onCheckedChange={(nextChecked) =>
               onOptionalToggle(nextChecked === true)
             }
             disabled={disabled || readOnly}
           />
-          <Label className="text-sm" htmlFor={inputId}>
+          <Label className="text-sm" htmlFor={checkboxId}>
             {FEE_LABELS[feeKey]}
           </Label>
         </div>
-        <span className="w-32 text-right text-sm tabular-nums">
-          {formatFeeCurrency(value)}
-        </span>
+        <div className="flex w-32 items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">₱</span>
+          <Input
+            id={`${inputId}-amount`}
+            type="number"
+            step="0.01"
+            min="0"
+            value={value}
+            readOnly
+            aria-readonly="true"
+            className="h-7 text-right text-sm read-only:bg-muted read-only:text-muted-foreground"
+            disabled={disabled}
+          />
+        </div>
       </div>
     )
   }
