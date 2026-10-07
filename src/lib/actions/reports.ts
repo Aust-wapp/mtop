@@ -48,7 +48,8 @@ export async function getRevenueSummary(fiscalYear?: number) {
         `filing_fee, supervision_fee, confirmation_fee, mayors_permit_fee,
          franchise_fee, police_clearance_fee, health_fee, legal_research_fee,
          parking_fee, late_renewal_penalty, change_of_motor_fee,
-         replacement_plate_fee, total_amount,
+         replacement_plate_fee, annual_confirmation_fee, reissuance_fee,
+         certification_fee, closure_fee, total_amount,
          application:mtop_applications!application_id(fiscal_year)`
       )
       .not("approved_at", "is", null)
@@ -74,6 +75,10 @@ export async function getRevenueSummary(fiscalYear?: number) {
       "late_renewal_penalty",
       "change_of_motor_fee",
       "replacement_plate_fee",
+      "annual_confirmation_fee",
+      "reissuance_fee",
+      "certification_fee",
+      "closure_fee",
     ]
 
     const summary: Record<string, number> = {}

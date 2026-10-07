@@ -208,8 +208,9 @@ export const assessmentSchema = z.object({
   late_renewal_penalty: z.coerce.number().min(0),
   change_of_motor_fee: z.coerce.number().min(0),
   replacement_plate_fee: z.coerce.number().min(0),
-  // Closure only; default 0 so an assessment filed for any other transaction
-  // doesn't have to mention them.
+  annual_confirmation_fee: z.coerce.number().min(0).default(0),
+  reissuance_fee: z.coerce.number().min(0).default(0),
+  // Closure only; default 0 so other transactions don't have to mention them.
   certification_fee: z.coerce.number().min(0).default(0),
   closure_fee: z.coerce.number().min(0).default(0),
 })

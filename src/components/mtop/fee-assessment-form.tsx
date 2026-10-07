@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Calculator,
   AlertCircle,
@@ -24,13 +23,22 @@ import {
 } from "lucide-react"
 import { createAssessment, approveAssessment } from "@/lib/actions/assessments"
 import {
-  STANDARD_FEES,
+  STANDARD_FEE_KEYS,
+  TRANSACTION_FEE_KEYS,
   FEE_LABELS,
+  calculateFeeTotal,
   calculateLatePenalty,
   feeScheduleFor,
   feeKeysFor,
+  type FeeKey,
 } from "@/lib/fees"
 import type { MtopStatus } from "@/types/database"
+
+const FEE_SECTIONS = [
+  { title: "Standard Fees", keys: STANDARD_FEE_KEYS },
+  { title: "Late Renewal Penalty", keys: ["late_renewal_penalty"] as const },
+  { title: "Other / Transaction Fees", keys: TRANSACTION_FEE_KEYS },
+] as const
 
 interface FeeAssessmentFormProps {
   applicationId: string
@@ -40,7 +48,7 @@ interface FeeAssessmentFormProps {
   canAssess: boolean
   canApproveAssessment: boolean
   status: MtopStatus
-  /** Which transaction is being priced; a closure is priced differently. */
+  /** Selects the fee schedule for this application. */
   transactionCode?: string | null
   /** Administrators may restate the fees at any stage before granting. */
   adminEdit?: boolean
@@ -86,6 +94,7 @@ export function FeeAssessmentForm({
 
   return (
     <AssessmentFormInner
+      key={`${applicationId}:${transactionCode ?? "unknown"}:${dueDate ?? "none"}:${existingAssessment?.id ?? "new"}`}
       applicationId={applicationId}
       dueDate={dueDate}
       transactionCode={transactionCode}
@@ -118,59 +127,37 @@ function AssessmentFormInner({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // A closure owes the certification fee and the payment for closure and
-  // nothing else; everything else owes the annual schedule. A revision starts
-  // from what was assessed before, a first assessment from the schedule.
-  const isClosure = transactionCode === "closure"
-  const [fees, setFees] = useState<Record<string, number>>(() => {
+  const applicableFeeKeys = new Set(feeKeysFor(transactionCode))
+  const [fees, setFees] = useState<Record<FeeKey, number>>(() => {
     const base = feeScheduleFor(
       transactionCode,
       dueDate ? calculateLatePenalty(new Date(dueDate), new Date()) : 0
     )
     if (!previous) return base
-    return Object.fromEntries(
-      Object.keys(base).map((key) => [key, Number(previous[key] ?? base[key])])
-    )
+    for (const key of applicableFeeKeys) {
+      if (previous[key] !== undefined && previous[key] !== null) {
+        base[key] = Number(previous[key])
+      }
+    }
+    return base
   })
 
-  // Optional fee toggles
-  const [changeOfMotor, setChangeOfMotor] = useState(
-    Number(previous?.change_of_motor_fee ?? 0) > 0
-  )
-  const [replacementPlate, setReplacementPlate] = useState(
-    Number(previous?.replacement_plate_fee ?? 0) > 0
-  )
-
-  function updateFee(key: string, value: string) {
+  function updateFee(key: FeeKey, value: string) {
     const num = parseFloat(value) || 0
     setFees((prev) => ({ ...prev, [key]: num }))
   }
 
-  function toggleChangeOfMotor(checked: boolean) {
-    setChangeOfMotor(checked)
-    setFees((prev) => ({
-      ...prev,
-      change_of_motor_fee: checked ? 1000.0 : 0,
-    }))
-  }
-
-  function toggleReplacementPlate(checked: boolean) {
-    setReplacementPlate(checked)
-    setFees((prev) => ({
-      ...prev,
-      replacement_plate_fee: checked ? 500.0 : 0,
-    }))
-  }
-
   const total = useMemo(
-    () => Object.values(fees).reduce((sum, v) => sum + v, 0),
+    () => calculateFeeTotal(fees),
     [fees]
   )
 
   async function handleSubmit() {
     const ok = await guard.confirm({
-      title: previous ? "Submit the revised assessment?" : "Submit this assessment?",
-      description: `Total due: ₱${total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}. It goes to the CTO head for approval before payment is taken.`,
+      title: previous
+        ? "Submit the revised assessment?"
+        : "Submit this assessment?",
+      description: `Total due: ${formatFeeCurrency(total)}. It goes to the CTO head for approval before payment is taken.`,
       confirmLabel: "Submit",
     })
     if (!ok) return
@@ -182,7 +169,7 @@ function AssessmentFormInner({
     // Every column is sent; the ones this transaction cannot be charged are
     // simply zero. The action vets the same thing, so a stale form can't
     // price a closure as a renewal.
-    const amount = (key: string) => Number(fees[key] ?? 0)
+    const amount = (key: FeeKey) => Number(fees[key] ?? 0)
     const result = await createAssessment(applicationId, {
       filing_fee: amount("filing_fee"),
       supervision_fee: amount("supervision_fee"),
@@ -196,6 +183,8 @@ function AssessmentFormInner({
       late_renewal_penalty: amount("late_renewal_penalty"),
       change_of_motor_fee: amount("change_of_motor_fee"),
       replacement_plate_fee: amount("replacement_plate_fee"),
+      annual_confirmation_fee: amount("annual_confirmation_fee"),
+      reissuance_fee: amount("reissuance_fee"),
       certification_fee: amount("certification_fee"),
       closure_fee: amount("closure_fee"),
     })
@@ -214,8 +203,6 @@ function AssessmentFormInner({
       onSaved?.()
     })
   }
-
-  const standardFeeKeys = Object.keys(STANDARD_FEES)
 
   return (
     <Card>
@@ -236,156 +223,30 @@ function AssessmentFormInner({
           </Alert>
         )}
 
-        {/* A closure is priced on its own terms: these two, and nothing
-            else. The annual fees do not apply because nothing is being
-            granted for a year. */}
-        {isClosure ? (
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Closure Fees</p>
-            {feeKeysFor(transactionCode).map((key) => (
-              <div key={key} className="flex items-center justify-between gap-4">
-                <Label className="text-sm flex-1">{FEE_LABELS[key]}</Label>
-                <div className="flex items-center gap-1.5 w-32">
-                  <span className="text-sm text-muted-foreground">₱</span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={fees[key] ?? 0}
-                    onChange={(e) => updateFee(key, e.target.value)}
-                    className="text-right h-7 text-sm"
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
-          {/* Standard fees */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Standard Fees</p>
-            {standardFeeKeys.map((key) => (
-              <div
+        {FEE_SECTIONS.map(({ title, keys }, sectionIndex) => (
+          <div key={title} className="space-y-3">
+            <p className="text-sm font-medium">{title}</p>
+            {title === "Late Renewal Penalty" &&
+              transactionCode === "renewal" && (
+                <p className="text-xs text-muted-foreground">
+                  {dueDate
+                    ? `Due date: ${dueDate}`
+                    : "No due date set — penalty defaults to ₱0.00"}
+                </p>
+              )}
+            {keys.map((key) => (
+              <AssessmentInputRow
                 key={key}
-                className="flex items-center justify-between gap-4"
-              >
-                <Label className="text-sm flex-1">{FEE_LABELS[key]}</Label>
-                <div className="flex items-center gap-1.5 w-32">
-                  <span className="text-sm text-muted-foreground">₱</span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={fees[key]}
-                    onChange={(e) => updateFee(key, e.target.value)}
-                    className="text-right h-7 text-sm"
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
+                feeKey={key}
+                value={fees[key]}
+                readOnly={!applicableFeeKeys.has(key)}
+                disabled={submitting}
+                onChange={(value) => updateFee(key, value)}
+              />
             ))}
+            {sectionIndex < FEE_SECTIONS.length - 1 && <Separator />}
           </div>
-
-          <Separator />
-
-          {/* Late renewal penalty */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Late Renewal Penalty</p>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label className="text-sm">{FEE_LABELS.late_renewal_penalty}</Label>
-                {dueDate && (
-                  <p className="text-xs text-muted-foreground">
-                    Due date: {dueDate}
-                  </p>
-                )}
-                {!dueDate && (
-                  <p className="text-xs text-muted-foreground">
-                    No due date set — penalty defaults to ₱0.00
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 w-32">
-                <span className="text-sm text-muted-foreground">₱</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={fees.late_renewal_penalty}
-                  onChange={(e) =>
-                    updateFee("late_renewal_penalty", e.target.value)
-                  }
-                  className="text-right h-7 text-sm"
-                  disabled={submitting}
-                />
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Optional fees */}
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Other Fees (if applicable)</p>
-
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={changeOfMotor}
-                  onCheckedChange={(c) => toggleChangeOfMotor(c as boolean)}
-                  disabled={submitting}
-                />
-                <Label className="text-sm cursor-pointer">
-                  {FEE_LABELS.change_of_motor_fee}
-                </Label>
-              </div>
-              <div className="flex items-center gap-1.5 w-32">
-                <span className="text-sm text-muted-foreground">₱</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={fees.change_of_motor_fee}
-                  onChange={(e) =>
-                    updateFee("change_of_motor_fee", e.target.value)
-                  }
-                  className="text-right h-7 text-sm"
-                  disabled={!changeOfMotor || submitting}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={replacementPlate}
-                  onCheckedChange={(c) => toggleReplacementPlate(c as boolean)}
-                  disabled={submitting}
-                />
-                <Label className="text-sm cursor-pointer">
-                  {FEE_LABELS.replacement_plate_fee}
-                </Label>
-              </div>
-              <div className="flex items-center gap-1.5 w-32">
-                <span className="text-sm text-muted-foreground">₱</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={fees.replacement_plate_fee}
-                  onChange={(e) =>
-                    updateFee("replacement_plate_fee", e.target.value)
-                  }
-                  className="text-right h-7 text-sm"
-                  disabled={!replacementPlate || submitting}
-                />
-              </div>
-            </div>
-          </div>
-
-          </>
-        )}
+        ))}
 
         <Separator />
 
@@ -393,7 +254,7 @@ function AssessmentFormInner({
         <div className="flex items-center justify-between rounded-lg border-2 px-4 py-3">
           <span className="text-sm font-semibold">Total Amount</span>
           <span className="text-lg font-bold">
-            ₱{total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+            {formatFeeCurrency(total)}
           </span>
         </div>
 
@@ -412,6 +273,52 @@ function AssessmentFormInner({
       {guard.element}
     </Card>
   )
+}
+
+function AssessmentInputRow({
+  feeKey,
+  value,
+  readOnly,
+  disabled,
+  onChange,
+}: {
+  feeKey: FeeKey
+  value: number
+  readOnly: boolean
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  const inputId = `assessment-${feeKey}`
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <Label className="flex-1 text-sm" htmlFor={inputId}>
+        {FEE_LABELS[feeKey]}
+      </Label>
+      <div className="flex w-32 items-center gap-1.5">
+        <span className="text-sm text-muted-foreground">₱</span>
+        <Input
+          id={inputId}
+          type="number"
+          step="0.01"
+          min="0"
+          value={value}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-7 text-right text-sm read-only:bg-muted read-only:text-muted-foreground"
+          disabled={disabled}
+        />
+      </div>
+    </div>
+  )
+}
+
+function formatFeeCurrency(amount: number) {
+  return `₱${amount.toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 function AssessmentResult({
@@ -435,27 +342,10 @@ function AssessmentResult({
 
   const isApproved = !!assessment.approved_at
 
-  const feeEntries = [
-    ["filing_fee", assessment.filing_fee],
-    ["supervision_fee", assessment.supervision_fee],
-    ["confirmation_fee", assessment.confirmation_fee],
-    ["mayors_permit_fee", assessment.mayors_permit_fee],
-    ["franchise_fee", assessment.franchise_fee],
-    ["police_clearance_fee", assessment.police_clearance_fee],
-    ["health_fee", assessment.health_fee],
-    ["legal_research_fee", assessment.legal_research_fee],
-    ["parking_fee", assessment.parking_fee],
-    ["late_renewal_penalty", assessment.late_renewal_penalty],
-    ["change_of_motor_fee", assessment.change_of_motor_fee],
-    ["replacement_plate_fee", assessment.replacement_plate_fee],
-    ["certification_fee", assessment.certification_fee],
-    ["closure_fee", assessment.closure_fee],
-  ].filter(([, amount]) => Number(amount) > 0) as [string, number][]
-
   async function handleApprove() {
     const ok = await guard.confirm({
       title: "Approve this assessment?",
-      description: `₱${Number(assessment.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })} becomes the amount the operator is told to pay, and the cashier can take payment against it.`,
+      description: `${formatFeeCurrency(Number(assessment.total_amount))} becomes the amount the operator is told to pay, and the cashier can take payment against it.`,
       confirmLabel: "Approve",
     })
     if (!ok) return
@@ -493,7 +383,7 @@ function AssessmentResult({
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -501,16 +391,23 @@ function AssessmentResult({
           </Alert>
         )}
 
-        {/* Fee breakdown */}
-        {feeEntries.map(([key, amount]) => (
-          <div
-            key={key}
-            className="flex items-center justify-between text-sm"
-          >
-            <span className="text-muted-foreground">{FEE_LABELS[key]}</span>
-            <span>
-              ₱{Number(amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
-            </span>
+        {FEE_SECTIONS.map(({ title, keys }, sectionIndex) => (
+          <div key={title} className="space-y-2">
+            <p className="text-sm font-medium">{title}</p>
+            {keys.map((key) => (
+              <div
+                key={key}
+                className="flex items-center justify-between gap-4 text-sm"
+              >
+                <span className="flex-1 text-muted-foreground">
+                  {FEE_LABELS[key]}
+                </span>
+                <span className="w-32 text-right tabular-nums">
+                  {formatFeeCurrency(Number(assessment[key] ?? 0))}
+                </span>
+              </div>
+            ))}
+            {sectionIndex < FEE_SECTIONS.length - 1 && <Separator />}
           </div>
         ))}
 
@@ -519,7 +416,7 @@ function AssessmentResult({
         <div className="flex items-center justify-between font-semibold">
           <span>Total</span>
           <span>
-            ₱{Number(assessment.total_amount).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+            {formatFeeCurrency(Number(assessment.total_amount))}
           </span>
         </div>
 

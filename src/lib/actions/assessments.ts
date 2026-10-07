@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
-import type { AssessmentFormValues } from "@/lib/schemas/mtop"
-import { feeKeysFor } from "@/lib/fees"
+import {
+  assessmentSchema,
+  type AssessmentFormValues,
+} from "@/lib/schemas/mtop"
+import { hasPermission } from "@/lib/permissions"
+import { calculateFeeTotal, feeKeysFor } from "@/lib/fees"
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -20,11 +24,20 @@ export async function createAssessment(
 ) {
   try {
     const { supabase, user } = await getAuthUser()
+    if (!(await hasPermission(supabase, user.id, "assessment.create"))) {
+      return {
+        error: "You are not authorized to create fee assessments.",
+        data: null,
+      }
+    }
+
+    const parsedFees = assessmentSchema.safeParse(fees)
+    if (!parsedFees.success) {
+      return { error: "The assessment contains an invalid fee amount.", data: null }
+    }
 
     // What a transaction may be charged is not the form's decision. A closure
-    // owes the certification fee and the payment for closure and nothing else;
-    // every other transaction owes the annual schedule and never those two.
-    // Anything outside the applicable set is zeroed here rather than trusted.
+    // schedule controls applicability; any other submitted value is zeroed.
     const { data: application, error: applicationError } = await supabase
       .schema("mtop")
       .from("mtop_applications")
@@ -44,18 +57,15 @@ export async function createAssessment(
       ? transactionType[0]?.code
       : transactionType?.code
 
-    const applicable = new Set(feeKeysFor(transactionCode))
+    const applicable = new Set<string>(feeKeysFor(transactionCode))
     const charged = Object.fromEntries(
-      Object.entries(fees).map(([key, value]) => [
+      Object.entries(parsedFees.data).map(([key, value]) => [
         key,
         applicable.has(key) ? Number(value) || 0 : 0,
       ])
     ) as Record<keyof AssessmentFormValues, number>
 
-    const totalAmount = Object.values(charged).reduce(
-      (sum, amount) => sum + amount,
-      0
-    )
+    const totalAmount = calculateFeeTotal(charged)
 
     const { data, error } = await supabase
       .schema("mtop")
@@ -75,6 +85,8 @@ export async function createAssessment(
         late_renewal_penalty: charged.late_renewal_penalty,
         change_of_motor_fee: charged.change_of_motor_fee,
         replacement_plate_fee: charged.replacement_plate_fee,
+        annual_confirmation_fee: charged.annual_confirmation_fee,
+        reissuance_fee: charged.reissuance_fee,
         certification_fee: charged.certification_fee,
         closure_fee: charged.closure_fee,
         total_amount: totalAmount,
