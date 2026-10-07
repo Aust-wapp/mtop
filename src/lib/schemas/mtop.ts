@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { isValidLostPlateReplacementFee } from "@/lib/fees"
 import { findCoOwnerMarker, SINGLE_OPERATOR_MESSAGE } from "@/lib/operator-name"
 
 // Franchise (stable owner + tricycle identity).
@@ -207,7 +208,13 @@ export const assessmentSchema = z.object({
   parking_fee: z.coerce.number().min(0),
   late_renewal_penalty: z.coerce.number().min(0),
   change_of_motor_fee: z.coerce.number().min(0),
-  replacement_plate_fee: z.coerce.number().min(0),
+  replacement_plate_fee: z.coerce
+    .number()
+    .refine(
+      isValidLostPlateReplacementFee,
+      "Replacement of Lost Plate must be ₱0 or ₱500"
+    )
+    .default(0),
   annual_confirmation_fee: z.coerce.number().min(0).default(0),
   reissuance_fee: z.coerce.number().min(0).default(0),
   // Closure only; default 0 so other transactions don't have to mention them.

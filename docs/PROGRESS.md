@@ -47,8 +47,12 @@ except Parking Fee is ₱0, and adds Change of Motor at ₱1,000, for ₱1,980.
 Annual Confirmation Slip charges the separate Annual Confirmation Fee of ₱100
 with the standard Confirmation Fee at ₱0. Re-Issuance charges ₱150. Closure
 keeps Certification Fee (₱100) and Payment of Closure (₱500) as separate rows,
-for ₱600. Replacement of Lost Plate remains visible at ₱0 because none of the
-current transaction workflows applies it.
+for ₱600.
+Replacement of Lost Plate is optional for any of the seven transaction types:
+the checkbox adds exactly ₱500, while an unchecked or omitted value is stored
+as ₱0. The server rejects any other replacement fee amount.
+Revisions restore
+the checkbox from the stored ₱500/₱0 value.
 
 Authorized fee overrides remain available on applicable lines through the
 existing assessment revision flow. Non-applicable lines are read-only. New

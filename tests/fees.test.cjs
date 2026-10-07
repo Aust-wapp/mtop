@@ -28,7 +28,37 @@ const {
   calculateLatePenalty,
   feeKeysFor,
   feeScheduleFor,
+  isValidLostPlateReplacementFee,
+  LOST_PLATE_REPLACEMENT_FEE,
 } = feeModule.exports
+
+const assessmentSchemaSource = fs.readFileSync(
+  path.join(__dirname, "../src/lib/schemas/mtop.ts"),
+  "utf8"
+)
+const compiledAssessmentSchema = typescript.transpileModule(
+  assessmentSchemaSource,
+  {
+    compilerOptions: {
+      module: typescript.ModuleKind.CommonJS,
+      target: typescript.ScriptTarget.ES2020,
+    },
+  }
+).outputText
+const assessmentSchemaModule = { exports: {} }
+const assessmentSchemaRequire = (moduleName) => {
+  if (moduleName === "@/lib/fees") return feeModule.exports
+  if (moduleName === "@/lib/operator-name") {
+    return { findCoOwnerMarker: () => null, SINGLE_OPERATOR_MESSAGE: "" }
+  }
+  return require(moduleName)
+}
+new Function("require", "module", "exports", compiledAssessmentSchema)(
+  assessmentSchemaRequire,
+  assessmentSchemaModule,
+  assessmentSchemaModule.exports
+)
+const { assessmentSchema } = assessmentSchemaModule.exports
 
 const standardFees = {
   filing_fee: 250,
@@ -115,7 +145,7 @@ test("closure shows two distinct fee lines that total ₱600", () => {
   assert.ok(STANDARD_FEE_KEYS.every((key) => fees[key] === 0))
 })
 
-test("all schedules include all rows and leave lost-plate replacement at zero", () => {
+test("lost-plate replacement is optional for all seven transactions", () => {
   const transactionCodes = [
     "new_franchise",
     "renewal",
@@ -133,11 +163,59 @@ test("all schedules include all rows and leave lost-plate replacement at zero", 
     const fees = feeScheduleFor(transactionCode)
     assert.deepEqual(Object.keys(fees), [...ALL_FEE_KEYS], transactionCode)
     assert.equal(fees.replacement_plate_fee, 0, transactionCode)
+    assert.ok(feeKeysFor(transactionCode).includes("replacement_plate_fee"))
     assert.ok(
       feeKeysFor(transactionCode).every((key) => ALL_FEE_KEYS.includes(key)),
       transactionCode
     )
-    assert.ok(!feeKeysFor(transactionCode).includes("replacement_plate_fee"))
+
+    const checkedFees = {
+      ...fees,
+      replacement_plate_fee: LOST_PLATE_REPLACEMENT_FEE,
+    }
+    assert.equal(sumFees(checkedFees), sumFees(fees) + 500, transactionCode)
+    assert.equal(
+      sumFees({ ...checkedFees, replacement_plate_fee: 0 }),
+      sumFees(fees)
+    )
+  }
+
+  assert.equal(isValidLostPlateReplacementFee(0), true)
+  assert.equal(isValidLostPlateReplacementFee(500), true)
+  assert.equal(isValidLostPlateReplacementFee(200), false)
+  assert.equal(isValidLostPlateReplacementFee(700), false)
+  assert.equal(isValidLostPlateReplacementFee(999), false)
+})
+
+test("assessment validation accepts only zero or the fixed lost-plate fee", () => {
+  const zeroAssessment = Object.fromEntries(
+    ALL_FEE_KEYS.map((key) => [key, 0])
+  )
+
+  assert.equal(
+    assessmentSchema.safeParse({
+      ...zeroAssessment,
+      replacement_plate_fee: 0,
+    }).success,
+    true
+  )
+  assert.equal(
+    assessmentSchema.safeParse({
+      ...zeroAssessment,
+      replacement_plate_fee: 500,
+    }).success,
+    true
+  )
+
+  for (const amount of [200, 700, 999]) {
+    assert.equal(
+      assessmentSchema.safeParse({
+        ...zeroAssessment,
+        replacement_plate_fee: amount,
+      }).success,
+      false,
+      `amount ${amount} must be rejected`
+    )
   }
 })
 

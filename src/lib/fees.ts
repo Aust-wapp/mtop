@@ -1,6 +1,12 @@
 import { differenceInDays } from "date-fns"
 import type { TransactionTypeCode } from "@/types/database"
 
+export const LOST_PLATE_REPLACEMENT_FEE = 500
+
+export function isValidLostPlateReplacementFee(value: number): boolean {
+  return value === 0 || value === LOST_PLATE_REPLACEMENT_FEE
+}
+
 export const STANDARD_FEES = {
   filing_fee: 250,
   supervision_fee: 100,
@@ -157,7 +163,10 @@ export function feeKeysFor(
     return []
   }
 
-  return APPLICABLE_FEE_KEYS[transactionCode as TransactionTypeCode]
+  return [
+    ...APPLICABLE_FEE_KEYS[transactionCode as TransactionTypeCode],
+    "replacement_plate_fee",
+  ]
 }
 
 /** Sum displayed assessment rows so the amount follows the actual line items. */

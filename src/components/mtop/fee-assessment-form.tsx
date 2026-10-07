@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -30,6 +31,7 @@ import {
   calculateLatePenalty,
   feeScheduleFor,
   feeKeysFor,
+  LOST_PLATE_REPLACEMENT_FEE,
   type FeeKey,
 } from "@/lib/fees"
 import type { MtopStatus } from "@/types/database"
@@ -136,7 +138,16 @@ function AssessmentFormInner({
     if (!previous) return base
     for (const key of applicableFeeKeys) {
       if (previous[key] !== undefined && previous[key] !== null) {
-        base[key] = Number(previous[key])
+        const previousValue = Number(previous[key])
+        if (key === "replacement_plate_fee") {
+          base[key] =
+            previousValue === LOST_PLATE_REPLACEMENT_FEE
+              ? LOST_PLATE_REPLACEMENT_FEE
+              : 0
+          continue
+        }
+
+        base[key] = previousValue
       }
     }
     return base
@@ -242,6 +253,14 @@ function AssessmentFormInner({
                 readOnly={!applicableFeeKeys.has(key)}
                 disabled={submitting}
                 onChange={(value) => updateFee(key, value)}
+                onOptionalToggle={(checked) =>
+                  setFees((prev) => ({
+                    ...prev,
+                    replacement_plate_fee: checked
+                      ? LOST_PLATE_REPLACEMENT_FEE
+                      : 0,
+                  }))
+                }
               />
             ))}
             {sectionIndex < FEE_SECTIONS.length - 1 && <Separator />}
@@ -281,14 +300,41 @@ function AssessmentInputRow({
   readOnly,
   disabled,
   onChange,
+  onOptionalToggle,
 }: {
   feeKey: FeeKey
   value: number
   readOnly: boolean
   disabled: boolean
   onChange: (value: string) => void
+  onOptionalToggle: (checked: boolean) => void
 }) {
   const inputId = `assessment-${feeKey}`
+
+  if (feeKey === "replacement_plate_fee") {
+    const checked = value === LOST_PLATE_REPLACEMENT_FEE
+
+    return (
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-1 items-center gap-2">
+          <Checkbox
+            id={inputId}
+            checked={checked}
+            onCheckedChange={(nextChecked) =>
+              onOptionalToggle(nextChecked === true)
+            }
+            disabled={disabled || readOnly}
+          />
+          <Label className="text-sm" htmlFor={inputId}>
+            {FEE_LABELS[feeKey]}
+          </Label>
+        </div>
+        <span className="w-32 text-right text-sm tabular-nums">
+          {formatFeeCurrency(value)}
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center justify-between gap-4">
