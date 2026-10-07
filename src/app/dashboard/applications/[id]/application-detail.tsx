@@ -628,7 +628,15 @@ export function ApplicationDetail({
             <>
               <FeeAssessmentForm
                 applicationId={application.id}
-                dueDate={application.due_date}
+                // A renewal is late from the day the permit expired, which
+                // the franchise already knows. mtop_applications.due_date is
+                // no longer asked for at filing; it is still read for older
+                // applications that had one typed in.
+                dueDate={
+                  transactionType?.code === "renewal"
+                    ? franchise?.granted_until ?? application.due_date
+                    : application.due_date
+                }
                 existingAssessment={application.assessment}
                 canAssess={can("assessment.create")}
                 canApproveAssessment={can("assessment.approve")}

@@ -241,8 +241,8 @@ function AssessmentFormInner({
               transactionCode === "renewal" && (
                 <p className="text-xs text-muted-foreground">
                   {dueDate
-                    ? `Due date: ${dueDate}`
-                    : "No due date set — penalty defaults to ₱0.00"}
+                    ? `Permit expiry: ${dueDate} — charged only for days past it`
+                    : "Applies to a late renewal only"}
                 </p>
               )}
             {keys.map((key) => (

@@ -80,7 +80,6 @@ export function NewFranchiseForm({
       association_id: "",
       make: "",
       day_off: "",
-      due_date: "",
     },
   });
 

@@ -368,7 +368,6 @@ export async function createNewFranchiseApplication(
       .insert({
         franchise_id: franchise.id,
         transaction_type_id: transactionType.id,
-        due_date: input.due_date || null,
         created_by: user.id,
       })
       .select("id")
@@ -608,7 +607,6 @@ export async function createFranchiseTransaction(
       .insert({
         franchise_id: franchise.id,
         transaction_type_id: transactionType.id,
-        due_date: input.due_date || null,
         created_by: user.id,
         new_motor_number: isChangeUnit ? input.new_motor_number : null,
         new_chassis_number: isChangeUnit ? input.new_chassis_number : null,

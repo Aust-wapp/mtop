@@ -44,9 +44,7 @@ export type FranchiseFormValues = z.infer<typeof franchiseSchema>
 
 // First-time application — creates a new franchise + first application together.
 // This is the only transaction that does not start from an existing franchise.
-export const newFranchiseApplicationSchema = franchiseSchema.extend({
-  due_date: z.string().optional(),
-})
+export const newFranchiseApplicationSchema = franchiseSchema
 
 export type NewFranchiseApplicationFormValues = z.infer<
   typeof newFranchiseApplicationSchema
@@ -79,7 +77,6 @@ const franchiseTransactionBaseSchema = z.object({
   make: z.string().trim().max(60).optional(),
   day_off: z.string().trim().max(60).optional(),
   association_id: z.string().uuid().optional().or(z.literal("")),
-  due_date: z.string().optional(),
   // Staged, not applied — mtop.grant_franchise() applies these to the
   // franchise only once the transaction is actually granted. See
   // replace_unit / transfer_owner in 20260413000015_grant_effects.sql.
