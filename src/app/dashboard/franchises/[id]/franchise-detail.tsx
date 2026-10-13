@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { format } from "date-fns"
+import { officeDateLabel } from "@/lib/office-time"
 import { PageHeader } from "@/components/layout/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { ExpirationBadge } from "@/components/shared/expiration-badge"
@@ -47,6 +48,7 @@ export function FranchiseDetail({
   history,
   historyError,
   renewalWindowDays,
+  abandonmentGraceDays,
   backHref = "/dashboard/applications",
   backLabel = "Back to applications",
   operatorMode = false,
@@ -56,6 +58,7 @@ export function FranchiseDetail({
   history: FranchiseHistoryEvent[]
   historyError: string | null
   renewalWindowDays: number
+  abandonmentGraceDays: number
   backHref?: string
   backLabel?: string
   operatorMode?: boolean
@@ -63,7 +66,8 @@ export function FranchiseDetail({
   const franchiseStatusDisplay = getFranchiseStatusDisplay(
     franchise.franchise_status,
     franchise.granted_until,
-    renewalWindowDays
+    renewalWindowDays,
+    abandonmentGraceDays
   )
   const expiration = franchiseStatusDisplay.expiration
   const initialGrant = applications
@@ -103,12 +107,14 @@ export function FranchiseDetail({
         }
         actions={
           <div className="flex items-center gap-2">
-            <FranchiseStatusBadge status={franchise.franchise_status} />
             {expiration && (
               <ExpirationBadge
                 status={expiration.status}
                 daysRemaining={expiration.daysRemaining}
               />
+            )}
+            {!expiration && (
+              <FranchiseStatusBadge status={franchise.franchise_status} />
             )}
           </div>
         }
@@ -182,6 +188,12 @@ export function FranchiseDetail({
                       label="Franchise status"
                       value={franchiseStatusDisplay.statusLabel}
                     />
+                    {franchise.abandoned_at && (
+                      <ReadOnlyField
+                        label="Abandoned since"
+                        value={officeDateLabel(franchise.abandoned_at)}
+                      />
+                    )}
                     <ReadOnlyField
                       label="Date granted"
                       value={

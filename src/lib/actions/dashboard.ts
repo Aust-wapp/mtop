@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { getSystemSettings } from "@/lib/actions/settings"
+import { getExpirationStatus } from "@/lib/utils/permit-expiration"
 import type { MtopStatus } from "@/types/database"
 
 async function getAuthUser() {
@@ -133,35 +134,42 @@ export async function getRecentActivity(limit = 10) {
 export async function getRenewalStats() {
   try {
     const { supabase } = await getAuthUser()
-    const { data: settings } = await getSystemSettings()
+    const settingsResult = await getSystemSettings()
+    if (settingsResult.error) return { error: settingsResult.error, data: null }
+    const { data: settings } = settingsResult
 
     const { data, error } = await supabase
       .schema("mtop")
       .from("mtop_franchises")
-      .select("granted_until")
-      .eq("franchise_status", "active")
+      .select("franchise_status, granted_until")
+      .in("franchise_status", ["active", "abandoned"])
       .not("granted_until", "is", null)
 
     if (error) return { error: error.message, data: null }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const dueWindowMs = settings.renewal_window_days * 24 * 60 * 60 * 1000
-
     let expired = 0
+    let abandoned = 0
     let dueForRenewal = 0
     let active = 0
 
     for (const row of data ?? []) {
-      const expiry = new Date(row.granted_until)
-      expiry.setHours(0, 0, 0, 0)
-      const diff = expiry.getTime() - today.getTime()
-      if (diff < 0) expired++
-      else if (diff <= dueWindowMs) dueForRenewal++
+      if (row.franchise_status === "abandoned") {
+        abandoned++
+        continue
+      }
+
+      const status = getExpirationStatus(
+        row.granted_until,
+        settings.renewal_window_days,
+        settings.abandonment_grace_days
+      ).status
+      if (status === "abandoned") abandoned++
+      else if (status === "expired") expired++
+      else if (status === "due_for_renewal") dueForRenewal++
       else active++
     }
 
-    return { error: null, data: { expired, dueForRenewal, active } }
+    return { error: null, data: { expired, abandoned, dueForRenewal, active } }
   } catch (e) {
     return { error: (e as Error).message, data: null }
   }

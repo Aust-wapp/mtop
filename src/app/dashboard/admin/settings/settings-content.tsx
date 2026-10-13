@@ -36,6 +36,7 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
     defaultValues: {
       permit_validity_years: settings.permit_validity_years,
       renewal_window_days: settings.renewal_window_days,
+      abandonment_grace_days: settings.abandonment_grace_days,
       ctms_contact_number: settings.ctms_contact_number,
       mayor_name: settings.mayor_name,
     },
@@ -80,6 +81,37 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
             {errors.permit_validity_years && (
               <p className="text-xs text-destructive">
                 {errors.permit_validity_years.message}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Post-Expiry Abandonment Period
+          </CardTitle>
+          <CardDescription>
+            Number of days after a franchise permit expires before its permit
+            status becomes Abandoned.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="abandonment_grace_days">Days after expiry</Label>
+            <Input
+              id="abandonment_grace_days"
+              type="number"
+              min={0}
+              step={1}
+              className="w-32"
+              {...register("abandonment_grace_days")}
+            />
+            {errors.abandonment_grace_days && (
+              <p className="text-xs text-destructive">
+                {errors.abandonment_grace_days.message}
               </p>
             )}
           </div>

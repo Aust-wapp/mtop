@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { FacetedFilter } from "@/components/shared/faceted-filter"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
+import { ExpirationBadge } from "@/components/shared/expiration-badge"
 import {
   Table,
   TableBody,
@@ -27,9 +28,20 @@ import type {
 
 const PAGE_SIZE = 20
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: {
+  label: string
+  value: OperatorDirectoryStatus
+  dot: string
+}[] = [
   { label: "Active", value: "active", dot: "bg-green-500" },
-  { label: "Inactive / Closed", value: "inactive", dot: "bg-slate-400" },
+  {
+    label: "Due for Renewal",
+    value: "due_for_renewal",
+    dot: "bg-amber-500",
+  },
+  { label: "Expired", value: "expired", dot: "bg-red-500" },
+  { label: "Abandoned", value: "abandoned", dot: "bg-slate-600" },
+  { label: "Closed", value: "closed", dot: "bg-slate-400" },
 ]
 
 function formatDate(value: string | null): string {
@@ -38,9 +50,10 @@ function formatDate(value: string | null): string {
   return Number.isNaN(date.getTime()) ? "—" : format(date, "MMM d, yyyy")
 }
 
-function parseStatusFilter(statuses: string[]): OperatorDirectoryStatus {
-  if (statuses.length !== 1) return "all"
-  return statuses[0] === "active" ? "active" : "inactive"
+function parseStatusFilter(statuses: string[]): OperatorDirectoryStatus[] {
+  return statuses.filter((value): value is OperatorDirectoryStatus =>
+    STATUS_OPTIONS.some((option) => option.value === value)
+  )
 }
 
 export function OperatorsTable() {
@@ -49,15 +62,9 @@ export function OperatorsTable() {
   const search = searchParams.get("search") ?? ""
   const statusParam = searchParams.get("status") ?? ""
   const selectedStatuses = useMemo(
-    () =>
-      statusParam
-        .split(",")
-        .filter((value) =>
-          STATUS_OPTIONS.some((option) => option.value === value)
-        ),
+    () => parseStatusFilter(statusParam.split(",")),
     [statusParam]
   )
-  const status = parseStatusFilter(selectedStatuses)
   const requestedPage = Number.parseInt(searchParams.get("page") ?? "1", 10)
   const page = Math.max(1, requestedPage || 1)
 
@@ -101,7 +108,7 @@ export function OperatorsTable() {
     setLoading(true)
     setError(null)
 
-    getOperators({ search, status, page }).then((result) => {
+    getOperators({ search, statuses: selectedStatuses, page }).then((result) => {
       if (cancelled) return
       setLoading(false)
       if (result.error) {
@@ -117,7 +124,7 @@ export function OperatorsTable() {
     return () => {
       cancelled = true
     }
-  }, [search, status, page])
+  }, [search, selectedStatuses, page])
 
   const hasFilters = search.length > 0 || selectedStatuses.length > 0
   const totalPages = Math.ceil(count / PAGE_SIZE)
@@ -142,7 +149,7 @@ export function OperatorsTable() {
           selected={selectedStatuses}
           onChange={(values) =>
             updateParams({
-              status: values.length === 1 ? values[0] : "",
+              status: values.join(","),
               page: "",
             })
           }
@@ -291,7 +298,14 @@ function OperatorRow({ operator }: { operator: OperatorDirectoryRecord }) {
         )}
       </TableCell>
       <TableCell>
-        <FranchiseStatusBadge status={operator.franchise_status} />
+        {operator.permit_expiration ? (
+          <ExpirationBadge
+            status={operator.permit_expiration.status}
+            daysRemaining={operator.permit_expiration.daysRemaining}
+          />
+        ) : (
+          <FranchiseStatusBadge status={operator.franchise_status} />
+        )}
       </TableCell>
       <TableCell className="hidden text-sm md:table-cell">
         {formatDate(operator.date_granted)}

@@ -29,6 +29,7 @@ export default async function FranchiseDetailPage({
       history={historyResult.data}
       historyError={historyResult.error}
       renewalWindowDays={settings.renewal_window_days}
+      abandonmentGraceDays={settings.abandonment_grace_days}
     />
   )
 }

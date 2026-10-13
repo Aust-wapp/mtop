@@ -114,6 +114,7 @@ export interface MtopFranchise {
   purok: string | null
   granted_until: string | null
   franchise_status: FranchiseStatus
+  abandoned_at: string | null
   closed_at: string | null
   last_confirmed_at: string | null
   last_reissued_at: string | null
@@ -448,6 +449,7 @@ export interface MtopSchema {
         | "make"
         | "day_off"
         | "franchise_status"
+        | "abandoned_at"
         | "closed_at"
         | "last_confirmed_at"
         | "last_reissued_at"
@@ -470,6 +472,7 @@ export interface MtopSchema {
         make?: string | null
         day_off?: string | null
         franchise_status?: FranchiseStatus
+        abandoned_at?: never
         closed_at?: string | null
         last_confirmed_at?: string | null
         last_reissued_at?: string | null
@@ -481,7 +484,7 @@ export interface MtopSchema {
         middle_name?: string | null
         suffix?: string | null
       }
-      Update: Partial<Omit<MtopFranchise, "id">>
+      Update: Partial<Omit<MtopFranchise, "id" | "abandoned_at">>
     }
     mtop_applications: {
       Row: MtopApplication
@@ -643,5 +646,11 @@ export interface MtopSchema {
     requirement_kind: RequirementKind
     grant_effect: GrantEffect
     franchise_status: FranchiseStatus
+  }
+  Functions: {
+    abandon_due_franchises: {
+      Args: Record<PropertyKey, never>
+      Returns: number
+    }
   }
 }

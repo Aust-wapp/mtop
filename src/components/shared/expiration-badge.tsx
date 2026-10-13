@@ -20,6 +20,11 @@ const expirationConfig: Record<
     dot: "bg-red-500",
     className: "bg-red-50 text-red-800 ring-1 ring-red-200",
   },
+  abandoned: {
+    label: "Abandoned",
+    dot: "bg-slate-600",
+    className: "bg-slate-100 text-slate-800 ring-1 ring-slate-300",
+  },
 }
 
 export function ExpirationBadge({

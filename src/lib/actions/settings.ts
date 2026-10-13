@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
-import type { SystemSettingsFormValues } from "@/lib/schemas/mtop"
+import { systemSettingsSchema, type SystemSettingsFormValues } from "@/lib/schemas/mtop"
+import { hasPermission } from "@/lib/permissions"
+import { DEFAULT_ABANDONMENT_GRACE_DAYS } from "@/lib/utils/permit-expiration"
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -16,6 +18,7 @@ async function getAuthUser() {
 export interface SystemSettings {
   permit_validity_years: number
   renewal_window_days: number
+  abandonment_grace_days: number
   ctms_contact_number: string
   /** Signatory on the confirmation slip. Seeded by 20260413000025. */
   mayor_name: string
@@ -24,6 +27,7 @@ export interface SystemSettings {
 const DEFAULTS: SystemSettings = {
   permit_validity_years: 3,
   renewal_window_days: 90,
+  abandonment_grace_days: DEFAULT_ABANDONMENT_GRACE_DAYS,
   ctms_contact_number: "",
   mayor_name: "",
 }
@@ -35,6 +39,11 @@ export async function getSystemSettings(): Promise<{
   try {
     const { supabase } = await getAuthUser()
 
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message, data: DEFAULTS }
+
     const { data, error } = await supabase
       .schema("mtop")
       .from("system_settings")
@@ -42,6 +51,7 @@ export async function getSystemSettings(): Promise<{
       .in("key", [
         "permit_validity_years",
         "renewal_window_days",
+        "abandonment_grace_days",
         "ctms_contact_number",
         "mayor_name",
       ])
@@ -55,6 +65,12 @@ export async function getSystemSettings(): Promise<{
       }
       if (row.key === "renewal_window_days") {
         settings.renewal_window_days = Number(row.value) || DEFAULTS.renewal_window_days
+      }
+      if (row.key === "abandonment_grace_days") {
+        const value = Number(row.value)
+        settings.abandonment_grace_days = Number.isSafeInteger(value) && value >= 0
+          ? value
+          : DEFAULTS.abandonment_grace_days
       }
       if (row.key === "ctms_contact_number") {
         settings.ctms_contact_number =
@@ -75,29 +91,46 @@ export async function getSystemSettings(): Promise<{
 export async function updateSystemSettings(input: SystemSettingsFormValues) {
   try {
     const { supabase, user } = await getAuthUser()
+    if (!(await hasPermission(supabase, user.id, "admin.manage"))) {
+      return { error: "You do not have permission to update system settings." }
+    }
+
+    const validation = systemSettingsSchema.safeParse(input)
+    if (!validation.success) {
+      return {
+        error: validation.error.issues[0]?.message ?? "Invalid settings input.",
+      }
+    }
+    const settings = validation.data
 
     const updates = [
       {
         key: "permit_validity_years",
-        value: input.permit_validity_years,
+        value: settings.permit_validity_years,
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
       {
         key: "renewal_window_days",
-        value: input.renewal_window_days,
+        value: settings.renewal_window_days,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        key: "abandonment_grace_days",
+        value: settings.abandonment_grace_days,
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
       {
         key: "ctms_contact_number",
-        value: input.ctms_contact_number?.trim() ?? "",
+        value: settings.ctms_contact_number?.trim() ?? "",
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
       {
         key: "mayor_name",
-        value: input.mayor_name?.trim() ?? "",
+        value: settings.mayor_name?.trim() ?? "",
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },
@@ -112,8 +145,14 @@ export async function updateSystemSettings(input: SystemSettingsFormValues) {
       if (error) return { error: error.message }
     }
 
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message }
+
     revalidatePath("/dashboard")
     revalidatePath("/dashboard/applications")
+    revalidatePath("/dashboard/operators")
     revalidatePath("/dashboard/admin/settings")
 
     return { error: null }

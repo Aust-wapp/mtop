@@ -25,7 +25,10 @@ import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge
 import { Search, ChevronLeft, ChevronRight, FileText, X } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { createClient } from "@/lib/supabase/client"
-import { expirationDateBounds } from "@/lib/utils/permit-expiration"
+import {
+  DEFAULT_ABANDONMENT_GRACE_DAYS,
+  expirationDateBounds,
+} from "@/lib/utils/permit-expiration"
 import { getFranchiseStatusDisplay } from "@/lib/utils/franchise-status"
 import type {
   MtopApplication,
@@ -41,6 +44,7 @@ type ApplicationRow = MtopApplication & {
 const PAGE_SIZE = 20
 
 const EXPIRATION_OPTIONS = [
+  { label: "Abandoned", value: "abandoned", dot: "bg-slate-600" },
   { label: "Expired", value: "expired", dot: "bg-red-500" },
   { label: "Due for Renewal", value: "due_for_renewal", dot: "bg-amber-500" },
   { label: "Active", value: "active", dot: "bg-green-500" },
@@ -94,6 +98,7 @@ export function ApplicationsTable() {
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState(search)
   const [transactionTypes, setTransactionTypes] = useState<
     TransactionType[] | null
@@ -101,7 +106,12 @@ export function ApplicationsTable() {
   const [settings, setSettings] = useState<{
     permit_validity_years: number
     renewal_window_days: number
-  }>({ permit_validity_years: 3, renewal_window_days: 90 })
+    abandonment_grace_days: number
+  }>({
+    permit_validity_years: 3,
+    renewal_window_days: 90,
+    abandonment_grace_days: DEFAULT_ABANDONMENT_GRACE_DAYS,
+  })
 
   const supabase = createClient()
 
@@ -117,13 +127,31 @@ export function ApplicationsTable() {
       .schema("mtop")
       .from("system_settings")
       .select("key, value")
-      .in("key", ["permit_validity_years", "renewal_window_days"])
+      .in("key", [
+        "permit_validity_years",
+        "renewal_window_days",
+        "abandonment_grace_days",
+      ])
       .then(({ data }: { data: { key: string; value: unknown }[] | null }) => {
         if (!data) return
-        const s = { permit_validity_years: 3, renewal_window_days: 90 }
+        const s = {
+          permit_validity_years: 3,
+          renewal_window_days: 90,
+          abandonment_grace_days: DEFAULT_ABANDONMENT_GRACE_DAYS,
+        }
         for (const row of data) {
-          if (row.key === "permit_validity_years") s.permit_validity_years = Number(row.value) || 3
-          if (row.key === "renewal_window_days") s.renewal_window_days = Number(row.value) || 90
+          if (row.key === "permit_validity_years") {
+            s.permit_validity_years = Number(row.value) || 3
+          }
+          if (row.key === "renewal_window_days") {
+            s.renewal_window_days = Number(row.value) || 90
+          }
+          if (row.key === "abandonment_grace_days") {
+            const value = Number(row.value)
+            s.abandonment_grace_days = Number.isSafeInteger(value) && value >= 0
+              ? value
+              : DEFAULT_ABANDONMENT_GRACE_DAYS
+          }
         }
         setSettings(s)
       })
@@ -186,6 +214,18 @@ export function ApplicationsTable() {
     if (typeCodes.length > 0 && transactionTypes === null) return
 
     setLoading(true)
+    setLoadError(null)
+
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) {
+      setLoadError(sweepError.message)
+      setApplications([])
+      setCount(0)
+      setLoading(false)
+      return
+    }
 
     // !inner so a filter on the franchise — the search box, the permit expiry —
     // narrows the applications themselves rather than just blanking the join.
@@ -216,21 +256,31 @@ export function ApplicationsTable() {
     }
 
     if (expirations.length > 0) {
-      query = query.eq("franchise.franchise_status", "active")
-      const { today, windowEnd } = expirationDateBounds(
-        settings.renewal_window_days
+      const { today, windowEnd, expiredStart } = expirationDateBounds(
+        settings.renewal_window_days,
+        settings.abandonment_grace_days
       )
       const clauses: string[] = []
       if (expirations.includes("expired")) {
-        clauses.push(`granted_until.lt.${today}`)
+        clauses.push(
+          `and(franchise_status.eq.active,granted_until.gte.${expiredStart},granted_until.lt.${today})`
+        )
+      }
+      if (expirations.includes("abandoned")) {
+        clauses.push(
+          "franchise_status.eq.abandoned",
+          `and(franchise_status.eq.active,granted_until.lt.${expiredStart})`
+        )
       }
       if (expirations.includes("due_for_renewal")) {
         clauses.push(
-          `and(granted_until.gte.${today},granted_until.lte.${windowEnd})`
+          `and(franchise_status.eq.active,granted_until.gte.${today},granted_until.lte.${windowEnd})`
         )
       }
       if (expirations.includes("active")) {
-        clauses.push(`granted_until.gt.${windowEnd}`)
+        clauses.push(
+          `and(franchise_status.eq.active,granted_until.gt.${windowEnd})`
+        )
       }
       if (clauses.length > 0) {
         query = query.or(clauses.join(","), { referencedTable: "franchise" })
@@ -241,7 +291,15 @@ export function ApplicationsTable() {
     const to = from + PAGE_SIZE - 1
     query = query.range(from, to)
 
-    const { data, count: totalCount } = await query
+    const { data, count: totalCount, error } = await query
+
+    if (error) {
+      setLoadError(error.message)
+      setApplications([])
+      setCount(0)
+      setLoading(false)
+      return
+    }
 
     setApplications((data as ApplicationRow[]) ?? [])
     setCount(totalCount ?? 0)
@@ -254,6 +312,7 @@ export function ApplicationsTable() {
     search,
     expirations,
     settings.renewal_window_days,
+    settings.abandonment_grace_days,
     page,
   ])
 
@@ -334,6 +393,12 @@ export function ApplicationsTable() {
         </p>
       </div>
 
+      {loadError && (
+        <p role="alert" className="text-sm text-destructive">
+          Applications could not be loaded: {loadError}
+        </p>
+      )}
+
       {/* Table */}
       <div className="rounded-xl border border-border/60 overflow-hidden bg-card shadow-sm">
         <Table>
@@ -379,7 +444,8 @@ export function ApplicationsTable() {
                 const franchiseStatusDisplay = getFranchiseStatusDisplay(
                   app.franchise?.franchise_status,
                   app.franchise?.granted_until,
-                  settings.renewal_window_days
+                  settings.renewal_window_days,
+                  settings.abandonment_grace_days
                 )
                 const expirationInfo = franchiseStatusDisplay.expiration
 

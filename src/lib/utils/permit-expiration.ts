@@ -2,7 +2,13 @@ import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns"
 
 import { officeDateParts } from "@/lib/office-time"
 
-export type PermitExpirationStatus = "active" | "due_for_renewal" | "expired"
+export type PermitExpirationStatus =
+  | "active"
+  | "due_for_renewal"
+  | "expired"
+  | "abandoned"
+
+export const DEFAULT_ABANDONMENT_GRACE_DAYS = 120
 
 export interface PermitExpirationInfo {
   status: PermitExpirationStatus
@@ -36,16 +42,34 @@ function asLocalDay(grantedUntil: string | Date): Date {
 // Derives expiration status from a franchise's stored granted_until date.
 export function getExpirationStatus(
   grantedUntil: string | Date,
-  renewalWindowDays: number
+  renewalWindowDays: number,
+  abandonmentGraceDays = DEFAULT_ABANDONMENT_GRACE_DAYS
+): PermitExpirationInfo {
+  return getExpirationStatusOnDate(
+    grantedUntil,
+    officeStartOfToday(),
+    renewalWindowDays,
+    abandonmentGraceDays
+  )
+}
+
+/** Calculate permit status against a supplied calendar date. */
+export function getExpirationStatusOnDate(
+  grantedUntil: string | Date,
+  today: Date,
+  renewalWindowDays: number,
+  abandonmentGraceDays = DEFAULT_ABANDONMENT_GRACE_DAYS
 ): PermitExpirationInfo {
   const expirationDate = asLocalDay(grantedUntil)
   const daysRemaining = differenceInCalendarDays(
     expirationDate,
-    officeStartOfToday()
+    asLocalDay(today)
   )
 
   let status: PermitExpirationStatus
-  if (daysRemaining < 0) {
+  if (daysRemaining < -abandonmentGraceDays) {
+    status = "abandoned"
+  } else if (daysRemaining < 0) {
     status = "expired"
   } else if (daysRemaining <= renewalWindowDays) {
     status = "due_for_renewal"
@@ -56,45 +80,81 @@ export function getExpirationStatus(
   return { status, expirationDate, daysRemaining }
 }
 
-/** The only transactions that may be newly filed against an expired franchise. */
-const ALLOWED_WHEN_EXPIRED: readonly string[] = ["renewal", "closure"]
+/** Transactions exempt from the expired/abandoned permit filing guard. */
+const ALLOWED_WHEN_EXPIRED: readonly string[] = ["closure"]
 
 export const EXPIRED_FRANCHISE_MESSAGE =
   "This franchise is expired. Only Renewal or Closure applications are allowed."
 
+export const ABANDONED_RENEWAL_MESSAGE =
+  "This permit is abandoned because the post-expiry period has passed. A new renewal application can no longer be filed."
+
+export const ABANDONED_FRANCHISE_MESSAGE =
+  "This permit is abandoned because the post-expiry period has passed. Only Closure applications are allowed."
+
 /**
- * Whether filing this transaction against a franchise is refused because the
- * franchise has expired. Shared by the franchise lookup and
- * createFranchiseTransaction so both apply the same exemption.
- *
- * The renewal window only separates "active" from "due_for_renewal", never
- * "expired", so it is irrelevant here.
+ * Whether filing this transaction is refused based on the permit's derived
+ * expiry status. Shared by the lookup and server action so both enforce the
+ * same post-expiry renewal deadline.
  */
 export function isBlockedByExpiry(
   grantedUntil: string | Date | null | undefined,
-  transactionCode: string
+  transactionCode: string,
+  renewalWindowDays = 0,
+  abandonmentGraceDays = DEFAULT_ABANDONMENT_GRACE_DAYS
 ): boolean {
   if (!grantedUntil) return false
+  if (transactionCode === "closure") return false
+  const status = getExpirationStatus(
+    grantedUntil,
+    renewalWindowDays,
+    abandonmentGraceDays
+  ).status
+  if (transactionCode === "renewal") return status === "abandoned"
   if (ALLOWED_WHEN_EXPIRED.includes(transactionCode)) return false
-  return getExpirationStatus(grantedUntil, 0).status === "expired"
+  return status === "expired" || status === "abandoned"
+}
+
+export function expiryBlockMessage(
+  grantedUntil: string | Date,
+  transactionCode: string,
+  renewalWindowDays: number,
+  abandonmentGraceDays: number
+): string {
+  const status = getExpirationStatus(
+    grantedUntil,
+    renewalWindowDays,
+    abandonmentGraceDays
+  ).status
+  if (transactionCode === "renewal" && status === "abandoned") {
+    return ABANDONED_RENEWAL_MESSAGE
+  }
+  if (status === "abandoned") return ABANDONED_FRANCHISE_MESSAGE
+  return EXPIRED_FRANCHISE_MESSAGE
 }
 
 /**
- * The same three statuses expressed as bounds on the `granted_until` column,
+ * The same four statuses expressed as bounds on the `granted_until` column,
  * so a list can be filtered in the database instead of after paging.
  *
- * `expired` is everything before `today`, `due_for_renewal` is `today` through
+ * `abandoned` is before `expiredStart`; `expired` runs from that date to the
+ * day before today. `due_for_renewal` is `today` through
  * `windowEnd` inclusive, `active` is everything after — the boundaries
- * getExpirationStatus() uses above, and the ones getRenewalStats() counts by,
- * so a dashboard card and the list it links to report the same number.
+ * getExpirationStatus() uses above, so dashboard counts and list results use
+ * the same boundaries.
  */
-export function expirationDateBounds(renewalWindowDays: number): {
+export function expirationDateBounds(
+  renewalWindowDays: number,
+  abandonmentGraceDays = DEFAULT_ABANDONMENT_GRACE_DAYS
+): {
   today: string
   windowEnd: string
+  expiredStart: string
 } {
   const today = officeStartOfToday()
   return {
     today: format(today, "yyyy-MM-dd"),
     windowEnd: format(addDays(today, renewalWindowDays), "yyyy-MM-dd"),
+    expiredStart: format(addDays(today, -abandonmentGraceDays), "yyyy-MM-dd"),
   }
 }

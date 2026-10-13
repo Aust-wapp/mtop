@@ -25,7 +25,7 @@ import { reopenTargetStage, remarksRequiredMessage } from "@/lib/application-flo
 import { composeAddress } from "@/lib/address"
 import { hasPermission } from "@/lib/permissions"
 import {
-  EXPIRED_FRANCHISE_MESSAGE,
+  expiryBlockMessage,
   isBlockedByExpiry,
 } from "@/lib/utils/permit-expiration"
 import type {
@@ -414,7 +414,9 @@ export async function createFranchiseTransaction(
       return { error: "State the reason for this transaction.", data: null }
     }
 
-    const { data: settings } = await getSystemSettings()
+    const settingsResult = await getSystemSettings()
+    if (settingsResult.error) return { error: settingsResult.error, data: null }
+    const { data: settings } = settingsResult
 
     const { error: typeError, data: transactionType } =
       await resolveTransactionType(supabase, input.transaction_type_code)
@@ -438,17 +440,34 @@ export async function createFranchiseTransaction(
       }
     }
 
-    if (franchise.franchise_status !== "active") {
+    const isAbandonedClosure =
+      franchise.franchise_status === "abandoned" &&
+      transactionType.code === "closure"
+
+    if (franchise.franchise_status !== "active" && !isAbandonedClosure) {
       return {
         error: `This franchise is ${franchise.franchise_status} and cannot file new transactions.`,
         data: null,
       }
     }
 
-    // An expired franchise may only file a renewal or a closure. Checked before
-    // anything below writes to the franchise.
-    if (isBlockedByExpiry(franchise.granted_until, transactionType.code)) {
-      return { error: EXPIRED_FRANCHISE_MESSAGE, data: null }
+    // A franchise can renew through its configured post-expiry period; closure
+    // remains allowed after expiry. Checked before this action writes anything.
+    if (
+      isBlockedByExpiry(
+        franchise.granted_until,
+        transactionType.code,
+        settings.renewal_window_days,
+        settings.abandonment_grace_days
+      )
+    ) {
+      const message = expiryBlockMessage(
+        franchise.granted_until,
+        transactionType.code,
+        settings.renewal_window_days,
+        settings.abandonment_grace_days
+      )
+      return { error: message, data: null }
     }
 
     // The renewal window is a renewal rule. An annual confirmation, a change of
@@ -725,8 +744,18 @@ export async function checkUnitIdentifiers(
 export async function searchFranchises(query: string, limit = 10) {
   try {
     const { supabase } = await getAuthUser()
+    const settingsResult = await getSystemSettings()
+    if (settingsResult.error) return { error: settingsResult.error, data: null }
+    const { data: settings } = settingsResult
     const trimmed = query.trim()
-    if (!trimmed) return { error: null, data: [] }
+    if (!trimmed) {
+      return {
+        error: null,
+        data: [],
+        renewalWindowDays: settings.renewal_window_days,
+        abandonmentGraceDays: settings.abandonment_grace_days,
+      }
+    }
 
     const { data, error } = await supabase
       .schema("mtop")
@@ -757,7 +786,12 @@ export async function searchFranchises(query: string, limit = 10) {
       }
     )
 
-    return { error: null, data: results }
+    return {
+      error: null,
+      data: results,
+      renewalWindowDays: settings.renewal_window_days,
+      abandonmentGraceDays: settings.abandonment_grace_days,
+    }
   } catch (e) {
     return { error: (e as Error).message, data: null }
   }
@@ -773,6 +807,11 @@ export interface ApplicationFilters {
 export async function getApplications(filters: ApplicationFilters = {}) {
   try {
     const { supabase } = await getAuthUser()
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message, data: null, count: 0 }
+
     const { status, search, page = 1, pageSize = 20 } = filters
 
     let query = supabase
@@ -819,6 +858,10 @@ export async function getApplications(filters: ApplicationFilters = {}) {
 export async function getApplication(id: string) {
   try {
     const { supabase } = await getAuthUser()
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message, data: null }
 
     // The application row comes first: its transaction_type_id decides which
     // checklist rules to merge into the requirement rows below.
@@ -957,10 +1000,8 @@ export async function updateApplicationStatus(
     }
 
     const updateData: Record<string, unknown> = { status }
-    let grantedAt: Date | null = null
     if (status === "granted") {
-      grantedAt = new Date()
-      updateData.granted_at = grantedAt.toISOString()
+      updateData.granted_at = new Date().toISOString()
     }
 
     const { error } = await supabase
@@ -971,21 +1012,9 @@ export async function updateApplicationStatus(
 
     if (error) return { error: error.message }
 
-    // grant_franchise() reads the application row itself — its
-    // transaction_type's grant_effect, and any new_* values staged at filing
-    // (change of unit / change of ownership) — and branches accordingly. See
-    // 20260413000015_grant_effects.sql for what each of the seven effects does.
-    if (status === "granted" && grantedAt) {
-      const { data: settings } = await getSystemSettings()
-      const { error: rpcError } = await supabase
-        .schema("mtop")
-        .rpc("grant_franchise", {
-          p_application_id: id,
-          p_granted_at: grantedAt.toISOString(),
-          p_validity_years: settings.permit_validity_years,
-        })
-      if (rpcError) return { error: rpcError.message }
-    }
+    // The database applies grant effects in this same transaction. An
+    // abandoned franchise therefore cannot leave its application marked
+    // Granted after a rejected renewal attempt.
 
     const { error: logError } = await supabase
       .schema("mtop")

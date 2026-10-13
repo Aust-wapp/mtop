@@ -39,6 +39,11 @@ export async function searchFranchisesGlobal(
 ): Promise<{ error: string | null; data: FranchiseSearchRow[] }> {
   try {
     const { supabase } = await getAuthUser()
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message, data: [] }
+
     const trimmed = query.trim()
     if (!trimmed) return { error: null, data: [] }
 
