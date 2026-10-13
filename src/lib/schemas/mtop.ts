@@ -247,6 +247,11 @@ export const returnActionSchema = z.object({
 export const systemSettingsSchema = z.object({
   permit_validity_years: z.coerce.number().int().min(1).max(10),
   renewal_window_days: z.coerce.number().int().min(1).max(365),
+  abandonment_grace_days: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(Number.MAX_SAFE_INTEGER),
   // Free-form: local numbers are written many ways ((088) 521-1234, 0917-…).
   ctms_contact_number: z
     .string()

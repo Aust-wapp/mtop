@@ -48,3 +48,20 @@ the transaction type and stored assessment total, so their display does not
 require dedicated columns. Closure fees use the existing certification and
 closure columns.
 Payment and revenue reporting continue to consume the stored assessment total.
+
+## Permanent franchise abandonment
+
+- Added `abandoned_at` and database enforcement so an abandoned franchise
+  cannot return to another lifecycle status. The migration backfills current
+  dynamically abandoned rows using the saved grace period and records the
+  inferred effective date; pre-existing abandoned rows receive a timestamp.
+- Added an idempotent database sweep, called after settings changes and before
+  status-sensitive reads, with a daily `pg_cron` run just after midnight in
+  Ozamiz. The saved grace period applies only to active franchises.
+- Grant effects now execute in the same database transaction as an application
+  transition to Granted. A renewal that races with abandonment rolls back its
+  application status update. Closure remains available; on an abandoned
+  franchise it records `closed_at` while keeping the permanent status.
+- Updated operator, application, dashboard and search views to use persisted
+  abandonment, and added SQL regression coverage for threshold changes,
+  renewal blocking, closure, timestamps, and historical application outcomes.

@@ -29,6 +29,7 @@ interface PipelineItem {
 
 interface RenewalStats {
   expired: number
+  abandoned: number
   dueForRenewal: number
   active: number
 }
@@ -101,6 +102,16 @@ const actionConfig: Record<ApprovalAction, { color: string; label: string }> = {
 }
 
 const renewalCards = [
+  {
+    key: "abandoned" as const,
+    title: "Abandoned Permits",
+    icon: AlertTriangle,
+    description: "Post-expiry period passed",
+    accent: "border-slate-500",
+    iconBg: "bg-slate-100 text-slate-700",
+    valueCls: "text-slate-800",
+    filter: "abandoned",
+  },
   {
     key: "expired" as const,
     title: "Expired Permits",
@@ -184,7 +195,7 @@ export function DashboardContent({
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               {renewalCards.map((card) => (
                 <Link
                   key={card.key}

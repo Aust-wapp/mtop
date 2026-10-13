@@ -13,7 +13,8 @@ import {
 import { Loader2, Search, ArrowLeft, ChevronRight } from "lucide-react"
 import { searchFranchises } from "@/lib/actions/applications"
 import {
-  EXPIRED_FRANCHISE_MESSAGE,
+  DEFAULT_ABANDONMENT_GRACE_DAYS,
+  expiryBlockMessage,
   isBlockedByExpiry,
 } from "@/lib/utils/permit-expiration"
 import type { MtopFranchise, TransactionType } from "@/types/database"
@@ -36,6 +37,10 @@ export function FranchiseLookup({
   const [results, setResults] = useState<FranchiseSearchHit[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [renewalWindowDays, setRenewalWindowDays] = useState(90)
+  const [abandonmentGraceDays, setAbandonmentGraceDays] = useState(
+    DEFAULT_ABANDONMENT_GRACE_DAYS
+  )
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const trimmed = query.trim()
@@ -50,6 +55,10 @@ export function FranchiseLookup({
       setSearched(true)
       if (!res.error && res.data) {
         setResults(res.data as FranchiseSearchHit[])
+        setRenewalWindowDays(res.renewalWindowDays ?? 90)
+        setAbandonmentGraceDays(
+          res.abandonmentGraceDays ?? DEFAULT_ABANDONMENT_GRACE_DAYS
+        )
       }
     }, 250)
     return () => {
@@ -116,14 +125,28 @@ export function FranchiseLookup({
                 // Every existing-franchise transaction needs a franchise the
                 // city has actually granted, that isn't closed, and only one
                 // application may be in flight at a time.
+                const canCloseAbandonedFranchise =
+                  f.franchise_status === "abandoned" &&
+                  transactionType.code === "closure"
                 const blockedReason = f.has_active_application
                   ? "An application is already in flight for this franchise"
                   : !f.granted_until
                     ? "Franchise has not been granted yet"
-                    : f.franchise_status !== "active"
+                    : f.franchise_status !== "active" &&
+                        !canCloseAbandonedFranchise
                       ? `Franchise is ${f.franchise_status}`
-                      : isBlockedByExpiry(f.granted_until, transactionType.code)
-                        ? EXPIRED_FRANCHISE_MESSAGE
+                      : isBlockedByExpiry(
+                            f.granted_until,
+                            transactionType.code,
+                            renewalWindowDays,
+                            abandonmentGraceDays
+                          )
+                        ? expiryBlockMessage(
+                            f.granted_until,
+                            transactionType.code,
+                            renewalWindowDays,
+                            abandonmentGraceDays
+                          )
                         : ""
                 const validThroughLabel =
                   f.franchise_status === "active"

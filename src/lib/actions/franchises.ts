@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { hasPermission } from "@/lib/permissions"
+import { getSystemSettings } from "@/lib/actions/settings"
+import {
+  expirationDateBounds,
+  getExpirationStatus,
+} from "@/lib/utils/permit-expiration"
+import type { PermitExpirationStatus } from "@/lib/utils/permit-expiration"
 import type { FranchiseStatus, MtopStatus } from "@/types/database"
 
 async function getAuthUser() {
@@ -16,13 +22,26 @@ async function getAuthUser() {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
-export type OperatorDirectoryStatus = "all" | "active" | "inactive"
+export type OperatorDirectoryStatus = PermitExpirationStatus | "closed"
+
+const OPERATOR_DIRECTORY_STATUSES: OperatorDirectoryStatus[] = [
+  "active",
+  "due_for_renewal",
+  "expired",
+  "abandoned",
+  "closed",
+]
 
 export interface OperatorDirectoryRecord {
   id: string
   mtop_number: string
   applicant_name: string
   franchise_status: FranchiseStatus
+  granted_until: string | null
+  permit_expiration: {
+    status: PermitExpirationStatus
+    daysRemaining: number
+  } | null
   plate_number: string | null
   contact_number: string | null
   date_granted: string | null
@@ -53,11 +72,11 @@ function operatorSearchFilter(term: string): string {
  */
 export async function getOperators({
   search = "",
-  status = "all",
+  statuses = [],
   page = 1,
 }: {
   search?: string
-  status?: OperatorDirectoryStatus
+  statuses?: OperatorDirectoryStatus[]
   page?: number
 } = {}): Promise<{
   error: string | null
@@ -66,29 +85,80 @@ export async function getOperators({
 }> {
   try {
     const { supabase } = await getAuthUser()
+    const settingsResult = await getSystemSettings()
+    if (settingsResult.error) {
+      return { error: settingsResult.error, data: [], count: 0 }
+    }
+    const { data: settings } = settingsResult
     const currentPage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
     const from = (currentPage - 1) * OPERATOR_PAGE_SIZE
+    const statusConditions: string[] = []
+    const selectedStatuses = new Set<OperatorDirectoryStatus>(
+      (Array.isArray(statuses) ? statuses : []).filter(
+        (status): status is OperatorDirectoryStatus =>
+          OPERATOR_DIRECTORY_STATUSES.includes(status)
+      )
+    )
+
+    if (selectedStatuses.size > 0) {
+      const { today, windowEnd, expiredStart } = expirationDateBounds(
+        settings.renewal_window_days,
+        settings.abandonment_grace_days
+      )
+
+      if (selectedStatuses.has("active")) {
+        statusConditions.push(
+          "and(franchise_status.eq.active,granted_until.is.null)",
+          `and(franchise_status.eq.active,granted_until.gt.${windowEnd})`
+        )
+      }
+      if (selectedStatuses.has("due_for_renewal")) {
+        statusConditions.push(
+          `and(franchise_status.eq.active,granted_until.gte.${today},granted_until.lte.${windowEnd})`
+        )
+      }
+      if (selectedStatuses.has("expired")) {
+        statusConditions.push(
+          `and(franchise_status.eq.active,granted_until.gte.${expiredStart},granted_until.lt.${today})`
+        )
+      }
+      if (selectedStatuses.has("abandoned")) {
+        statusConditions.push(
+          "franchise_status.eq.abandoned",
+          `and(franchise_status.eq.active,granted_until.lt.${expiredStart})`
+        )
+      }
+      if (selectedStatuses.has("closed")) {
+        statusConditions.push("franchise_status.eq.closed")
+      }
+    }
 
     let query = supabase
       .schema("mtop")
       .from("mtop_franchises")
       .select(
-        "id, mtop_number, applicant_name, franchise_status, plate_number, contact_number",
+        "id, mtop_number, applicant_name, franchise_status, granted_until, plate_number, contact_number",
         { count: "exact" }
       )
       .not("mtop_number", "is", null)
       .order("mtop_number", { ascending: false })
-      .range(from, from + OPERATOR_PAGE_SIZE - 1)
 
-    if (status === "active") {
-      query = query.eq("franchise_status", "active")
-    } else if (status === "inactive") {
-      query = query.neq("franchise_status", "active")
-    }
+    const searchConditions = search.trim()
+      ? operatorSearchFilter(search.trim())
+      : null
+    const statusFilter =
+      statusConditions.length > 0 ? statusConditions.join(",") : null
 
-    if (search.trim()) {
-      query = query.or(operatorSearchFilter(search.trim()))
+    if (searchConditions && statusFilter) {
+      query = query.or(
+        `and(or(${searchConditions}),or(${statusFilter}))`
+      )
+    } else if (searchConditions) {
+      query = query.or(searchConditions)
+    } else if (statusFilter) {
+      query = query.or(statusFilter)
     }
+    query = query.range(from, from + OPERATOR_PAGE_SIZE - 1)
 
     const { data: franchises, count, error } = await query
     if (error) return { error: error.message, data: [], count: 0 }
@@ -99,6 +169,7 @@ export async function getOperators({
       | "mtop_number"
       | "applicant_name"
       | "franchise_status"
+      | "granted_until"
       | "plate_number"
       | "contact_number"
     >[]
@@ -156,9 +227,23 @@ export async function getOperators({
           (left.granted_at ?? "").localeCompare(right.granted_at ?? "")
         )[0]
       const latestType = latest ? embeddedOne(latest.transaction_type) : null
+      let permitExpiration: OperatorDirectoryRecord["permit_expiration"] = null
+
+      if (record.franchise_status === "active" && record.granted_until) {
+        const expiration = getExpirationStatus(
+          record.granted_until,
+          settings.renewal_window_days,
+          settings.abandonment_grace_days
+        )
+        permitExpiration = {
+          status: expiration.status,
+          daysRemaining: expiration.daysRemaining,
+        }
+      }
 
       return {
         ...record,
+        permit_expiration: permitExpiration,
         date_granted: initialGrant?.granted_at ?? null,
         latest_transaction:
           latest && latestType
@@ -336,6 +421,10 @@ export async function updateFranchiseDriverDetails(
 export async function getFranchise(id: string) {
   try {
     const { supabase } = await getAuthUser()
+    const { error: sweepError } = await supabase
+      .schema("mtop")
+      .rpc("abandon_due_franchises")
+    if (sweepError) return { error: sweepError.message, data: null }
 
     const [franchiseResult, applicationsResult] = await Promise.all([
       supabase

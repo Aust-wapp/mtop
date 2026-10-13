@@ -247,7 +247,8 @@ export function ApplicationDetail({
   const franchiseStatusDisplay = getFranchiseStatusDisplay(
     franchise?.franchise_status,
     franchise?.granted_until,
-    settings.renewal_window_days
+    settings.renewal_window_days,
+    settings.abandonment_grace_days
   )
   const grantedTransactionTitle = grantedTransactionLabel(
     transactionType?.code,
@@ -311,6 +312,13 @@ export function ApplicationDetail({
               </>
             )}
             <StatusBadge status={application.status} />
+            {application.status !== "granted" &&
+              franchiseStatusDisplay.expiration && (
+                <ExpirationBadge
+                  status={franchiseStatusDisplay.expiration.status}
+                  daysRemaining={franchiseStatusDisplay.expiration.daysRemaining}
+                />
+              )}
           </div>
         }
       />
@@ -347,8 +355,10 @@ export function ApplicationDetail({
                 {transactionType?.code === "closure" ? (
                   <>
                     This closure application was granted
-                    {grantedOn ? ` on ${grantedOn}` : ""}. The franchise is
-                    now closed.
+                    {grantedOn ? ` on ${grantedOn}` : ""}.
+                    {franchise.franchise_status === "abandoned"
+                      ? " The closure is recorded, and the permanent abandoned status remains in effect."
+                      : " The franchise is now closed."}
                   </>
                 ) : (
                   <>
@@ -364,7 +374,18 @@ export function ApplicationDetail({
 
         return (
           <>
-            {expirationInfo?.status === "expired" ? (
+            {expirationInfo?.status === "abandoned" ? (
+              <Alert className="border-slate-200 bg-slate-50">
+                <AlertCircle className="h-4 w-4 text-slate-600" />
+                <AlertTitle className="text-slate-800 flex items-center gap-2">
+                  Permit Abandoned
+                  <ExpirationBadge status="abandoned" daysRemaining={expirationInfo.daysRemaining} />
+                </AlertTitle>
+                <AlertDescription className="text-slate-700">
+                  The post-expiry abandonment period has passed for this permit.
+                </AlertDescription>
+              </Alert>
+            ) : expirationInfo?.status === "expired" ? (
               <Alert className="border-red-200 bg-red-50">
                 <AlertCircle className="h-4 w-4 text-red-600" />
                 <AlertTitle className="text-red-800 flex items-center gap-2">

@@ -1,4 +1,7 @@
 import { getExpirationStatus } from "@/lib/utils/permit-expiration"
+import type {
+  PermitExpirationStatus,
+} from "@/lib/utils/permit-expiration"
 import type { FranchiseStatus } from "@/types/database"
 
 const FRANCHISE_STATUS_LABELS: Record<FranchiseStatus, string> = {
@@ -7,6 +10,13 @@ const FRANCHISE_STATUS_LABELS: Record<FranchiseStatus, string> = {
   abandoned: "Abandoned",
   revoked: "Revoked",
   cancelled: "Cancelled",
+}
+
+const PERMIT_EXPIRATION_LABELS: Record<PermitExpirationStatus, string> = {
+  active: "Active",
+  due_for_renewal: "Due for Renewal",
+  expired: "Expired",
+  abandoned: "Abandoned",
 }
 
 export function getFranchiseStatusLabel(status: FranchiseStatus): string {
@@ -20,17 +30,27 @@ export function getFranchiseStatusLabel(status: FranchiseStatus): string {
 export function getFranchiseStatusDisplay(
   status: FranchiseStatus | null | undefined,
   grantedUntil: string | Date | null | undefined,
-  renewalWindowDays: number
+  renewalWindowDays: number,
+  abandonmentGraceDays?: number
 ) {
   const isActive = status === "active"
+  const expiration =
+    isActive && grantedUntil
+      ? getExpirationStatus(
+          grantedUntil,
+          renewalWindowDays,
+          abandonmentGraceDays
+        )
+      : null
 
   return {
-    statusLabel: status ? getFranchiseStatusLabel(status) : null,
-    isActive,
-    expiration:
-      isActive && grantedUntil
-        ? getExpirationStatus(grantedUntil, renewalWindowDays)
+    statusLabel: expiration
+      ? PERMIT_EXPIRATION_LABELS[expiration.status]
+      : status
+        ? getFranchiseStatusLabel(status)
         : null,
+    isActive,
+    expiration,
     historicalValidityLabel: "Previous validity end",
   }
 }
