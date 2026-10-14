@@ -1,20 +1,6 @@
-/**
- * The seven MTOP application forms, one to an A4 page.
- *
- * The office's originals are one form to a portrait sheet, each with a
- * Tracker / Received By / Date Posted block along the bottom for franchise
- * staff. Those blocks are gone — the system tracks all of that now — and what
- * is left is typeset the way a printed form is: compact fields on a common
- * grid, thin rules, thin boxes, and whatever is left of the page left blank
- * rather than stretched over.
- *
- * Every form is a list of blocks (field grids, boxes, the reason block, the
- * signature, the legal text) drawn by the same few components below, so the
- * seven read as one family. Fields sit on a CSS grid whose label columns size
- * themselves to their longest label, which keeps every rule starting at the
- * same place without measuring anything. Set in Arial, which every machine that
- * prints it has.
- */
+import type { ReactNode } from "react"
+
+/** Seven A4 application forms with shared paper-form typography and section frames. */
 
 /** A4, portrait. A hair under 297mm so rounding never spills a blank page. */
 const SHEET_W = "210mm"
@@ -35,7 +21,7 @@ const WRITE = "0.75pt solid #000"
 const FONT = {
   body: 10.5,
   small: 8.5,
-  statement: 7.5,
+  undertaking: 9,
   heading: 11,
   title: 16,
 }
@@ -44,9 +30,9 @@ const FONT = {
 const HEADING = { fontWeight: 700, fontSize: `${FONT.heading}pt`, lineHeight: 1.2 } as const
 
 /** One writing line, from rule to rule. */
-const PITCH = 25
+const PITCH = 27
 /** Space between blocks on the page. */
-const BLOCK_GAP = 11
+const BLOCK_GAP = 10
 /** Space between the groups inside one field grid. */
 const GROUP_GAP = 9
 
@@ -62,11 +48,10 @@ const LABEL_MIN_RIGHT = 88
 const CELL_GAP = 18
 /** Space between a label and its rule. */
 const LABEL_GAP = 5
-/** A box's side padding plus its border, so a boxed rule starts where an unboxed one does. */
-/** Extra space between the page margin and a box's border, each side. Only boxes take it; fields and rules keep the full width. */
-const BOX_SIDE_GAP = "3mm"
-const BOX_SIDE_GAP_PT = 3 * 72 / 25.4
-const BOX_INSET = 8 + 1 + BOX_SIDE_GAP_PT
+/** Inset only the title and form body; the official header keeps the approved page margins. */
+const BODY_INSET = "3mm"
+const SECTION_PADDING = "6pt 10pt 9pt"
+const SECTION_FRAME = { border: STROKE, breakInside: "avoid" } as const
 
 export const APPLICATION_FORM_TYPES = [
   "new-franchise",
@@ -90,9 +75,7 @@ type Row =
   | "gap"
 
 /**
- * One field to a line. Every line ends at the same place — FIELD_WIDTH of the
- * content width, label included — so the rules read as one column whatever
- * the label's length.
+ * One field to a line, with a common endpoint regardless of label length.
  */
 interface Line {
   label: string
@@ -112,7 +95,7 @@ type Block =
   | { kind: "compare"; left: Panel; right: Panel }
   | { kind: "reason"; options: string[] }
   | { kind: "signature" }
-  | { kind: "statements" }
+  | { kind: "undertaking" }
 
 interface FormDefinition {
   title: string
@@ -121,9 +104,6 @@ interface FormDefinition {
 
 const row = (...labels: string[]): Row => ({ labels })
 const line = (label: string): Line => ({ label })
-
-/** A one-column line's whole width — label and rule — as a share of the content width. */
-const FIELD_WIDTH = 65
 
 /** The applicant's own details, one to a line. Every application form carries Address and Contact No. */
 const applicantLines: LineItem[] = [
@@ -187,8 +167,8 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
         lines: [...applicantLines, ...driverLines],
       },
       newUnitBox,
+      { kind: "undertaking" },
       { kind: "signature" },
-      { kind: "statements" },
     ],
   },
   renewal: {
@@ -199,8 +179,8 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
         lines: [...applicantLines, ...driverLines],
       },
       unitBox,
+      { kind: "undertaking" },
       { kind: "signature" },
-      { kind: "statements" },
     ],
   },
   // The system records the successor's name, address and contact number
@@ -232,8 +212,8 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
           row("Driver’s License No.:"),
         ],
       },
+      { kind: "undertaking" },
       { kind: "signature" },
-      { kind: "statements" },
     ],
   },
   "change-unit": {
@@ -259,8 +239,8 @@ const FORMS: Record<ApplicationFormType, FormDefinition> = {
           ],
         },
       },
+      { kind: "undertaking" },
       { kind: "signature" },
-      { kind: "statements" },
     ],
   },
   closure: {
@@ -319,10 +299,11 @@ export const APPLICATION_FORM_TITLES = APPLICATION_FORM_TYPES.map((type) => ({
   title: FORMS[type].title,
 }))
 
-const STATEMENTS = [
-  "The applicant is financially capable of operating the proposed motorcab/tri-wheeler service and agrees to comply with all City ordinances, rules, and regulations.",
-  "Public necessity and convenience require immediate approval.",
-  "WHEREFORE, approval is respectfully sought from the City Mayor to issue the Motorized Tricycle Operator’s Permit (MTOP) for the route applied for.",
+const UNDERTAKING = [
+  "That the applicant is financially capable of maintaining the operation of the proposed motorcab / tri-wheeler service.",
+  "That the applicant is willing and ready to comply with the ordinances, resolutions, rules and regulations imposed by the City Government of Ozamiz.",
+  "The public necessity and convenience demand the immediate approval of this application.",
+  "WHEREFORE, IT IS MOST RESPECTFULLY prayed unto His Honor, the City Mayor that the aforementioned application be issued a Motorized Tricycle Operator’s Permit to operate a motorcab / tri-wheeler service in the route applied for.",
 ]
 /** A field label. A parenthetical note ("(if changed)") is set lighter so it does not outweigh the name. */
 function Label({ text }: { text: string }) {
@@ -348,13 +329,13 @@ const labelStyle = {
 } as const
 
 /** A writing line the width of its cell. */
-function Rule({ column }: { column: string }) {
+function Rule({ column, pitch = PITCH }: { column: string; pitch?: number }) {
   return (
     <div
       style={{
         gridColumn: column,
         boxSizing: "border-box",
-        height: `${PITCH}pt`,
+        height: `${pitch}pt`,
         borderBottom: WRITE,
       }}
     />
@@ -413,7 +394,7 @@ function FieldGrid({
                 <Label text={label} />
               </span>
             </div>,
-            <Rule key={`${y}-${x}-r`} column={`${x * 2 + 2} / ${ruleEnd}`} />,
+            <Rule key={`${y}-${x}-r`} column={`${x * 2 + 2} / ${ruleEnd}`} pitch={pitch} />,
           ]
         })
       })}
@@ -435,7 +416,7 @@ function Lines({ lines, labelMin = LABEL_MIN }: { lines: LineItem[]; labelMin?: 
         ) : (
           <div
             key={l.label}
-            style={{ display: "flex", width: `${FIELD_WIDTH}%`, height: `${PITCH}pt` }}
+            style={{ display: "flex", width: "100%", height: `${PITCH}pt` }}
           >
             <div
               style={{
@@ -484,14 +465,13 @@ function CheckBox() {
 /** Reason options stacked top to bottom, then three writing lines for anything to add. */
 function Reason({ options }: { options: string[] }) {
   return (
-    <div>
-      <div style={{ fontWeight: 700, fontSize: `${FONT.heading}pt` }}>REASON:</div>
+    <Section title="REASON:">
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "5pt",
-          padding: "6pt 0 6pt 14pt",
+          gap: "7pt",
+          padding: "6pt 0 7pt",
           fontSize: `${FONT.body}pt`,
         }}
       >
@@ -502,11 +482,29 @@ function Reason({ options }: { options: string[] }) {
           </div>
         ))}
       </div>
-      {/* Three writing lines, no frame around them. */}
+      {/* Preserve the original three reason-writing lines. */}
       {Array.from({ length: 3 }, (_, i) => (
         <div key={i} style={{ height: `${PITCH}pt`, borderBottom: WRITE }} />
       ))}
+    </Section>
+  )
+}
+
+function SectionHeading({ title }: { title: string }) {
+  return (
+    <div style={{ ...HEADING, background: "#ededed", borderBottom: STROKE, padding: "5pt 10pt" }}>
+      {title}
     </div>
+  )
+}
+
+/** One complete rectangular frame and heading treatment for all information groups. */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section style={SECTION_FRAME}>
+      <SectionHeading title={title} />
+      <div style={{ padding: SECTION_PADDING }}>{children}</div>
+    </section>
   )
 }
 
@@ -520,33 +518,28 @@ function Box({
   labelMin?: number
 }) {
   return (
-    <section style={{ border: STROKE, padding: "7pt 8pt 7pt", margin: `0 ${BOX_SIDE_GAP}` }}>
-      <div style={{ ...HEADING, paddingBottom: "2pt" }}>
-        {title}
-      </div>
-      {/* The box is inset, so its labels give back the inset and the rules still line up with the page's. */}
-      <FieldGrid rows={rows} labelMin={labelMin - BOX_INSET} />
-    </section>
+    <Section title={title}>
+      <FieldGrid rows={rows} labelMin={labelMin} />
+    </Section>
   )
 }
 
 /** Old and new side by side in one frame, split down the middle. */
 function Compare({ left, right }: { left: Panel; right: Panel }) {
   return (
-    <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: STROKE, margin: `0 ${BOX_SIDE_GAP}` }}>
+    <section style={{ ...SECTION_FRAME, display: "grid", gridTemplateColumns: "1fr 1fr" }}>
       {[left, right].map((p, i) => (
         <div
           key={p.title}
           style={{
             minWidth: 0,
-            padding: "7pt 8pt 7pt",
             borderLeft: i === 1 ? STROKE : undefined,
           }}
         >
-          <div style={{ ...HEADING, paddingBottom: "2pt" }}>
-            {p.title}
+          <SectionHeading title={p.title} />
+          <div style={{ padding: SECTION_PADDING }}>
+            <FieldGrid rows={p.rows} labelMin={100} pitchScale={1.1} />
           </div>
-          <FieldGrid rows={p.rows} labelMin={100} pitchScale={1.1} />
         </div>
       ))}
     </section>
@@ -555,7 +548,7 @@ function Compare({ left, right }: { left: Panel; right: Panel }) {
 
 function Signature() {
   return (
-    <div style={{ padding: "26pt 0 0", textAlign: "center" }}>
+    <div style={{ padding: "34pt 0 0", textAlign: "center", breakInside: "avoid" }}>
       <div style={{ width: "240pt", margin: "0 auto", borderTop: WRITE }} />
       <div
         style={{
@@ -571,25 +564,31 @@ function Signature() {
   )
 }
 
-/** The declaration under the control number: three paragraphs, one to a row, full width. */
-function Statements() {
+/** Original four paragraphs, after the information sections and before signing. */
+function Undertaking() {
   return (
-    <div style={{ fontSize: `${FONT.statement}pt`, lineHeight: 1.3, textAlign: "left" }}>
-      {STATEMENTS.map((s) => (
-        <p key={s} style={{ margin: "0 0 3pt", textIndent: "0.5cm" }}>
-          {s}
-        </p>
-      ))}
-    </div>
+    <Section title="UNDERTAKING">
+      <div style={{ fontFamily: SANS, fontSize: `${FONT.undertaking}pt`, fontWeight: 400, lineHeight: 1.4, textAlign: "left" }}>
+        {UNDERTAKING.map((text, i) => (
+          <p key={text} style={{ margin: i === 0 ? 0 : "5pt 0 0", textIndent: "0.5cm" }}>
+            {text}
+          </p>
+        ))}
+      </div>
+    </Section>
   )
 }
 
 function RenderBlock({ block }: { block: Block }) {
   switch (block.kind) {
     case "fields":
-      return <FieldGrid rows={block.rows} labelMin={block.labelMin} />
+      return <Box title="APPLICANT INFORMATION" rows={block.rows} labelMin={block.labelMin} />
     case "lines":
-      return <Lines lines={block.lines} labelMin={block.labelMin} />
+      return (
+        <Section title="APPLICANT INFORMATION">
+          <Lines lines={block.lines} labelMin={block.labelMin} />
+        </Section>
+      )
     case "box":
       return (
         <div style={{ marginTop: block.spaceBefore ? `${block.spaceBefore}pt` : undefined }}>
@@ -602,9 +601,8 @@ function RenderBlock({ block }: { block: Block }) {
       return <Reason options={block.options} />
     case "signature":
       return <Signature />
-    case "statements":
-      // Drawn under the header by the sheet, not in flow with the blocks.
-      return null
+    case "undertaking":
+      return <Undertaking />
   }
 }
 
@@ -615,12 +613,9 @@ function Logo({ src, height }: { src: string; height: number }) {
 }
 
 /**
- * The same head on every form: logos either side of the city's name, a rule,
- * the form's title between two rules, and the control number the office fills
- * in on receipt. The side groups share the width equally, so the name stays on
- * the page's centre line however wide the logos on either side are.
+ * The approved official header and full-width divider, outside the body inset.
  */
-function FormHeader({ title }: { title: string }) {
+function FormHeader() {
   return (
     <header>
       {/* One centred group: logos hug the name rather than sitting at the page corners. */}
@@ -648,6 +643,14 @@ function FormHeader({ title }: { title: string }) {
       </div>
       {/* Spans the full content width, between the page margins; the group above stays compact. */}
       <div style={{ borderTop: STROKE }} />
+    </header>
+  )
+}
+
+/** The title and office control number belong to the inset body area. */
+function FormTitle({ title }: { title: string }) {
+  return (
+    <div>
       <div
         style={{
           padding: "7pt 0 0",
@@ -674,7 +677,7 @@ function FormHeader({ title }: { title: string }) {
         <span style={{ whiteSpace: "nowrap", paddingRight: `${LABEL_GAP}pt` }}>Control No.:</span>
         <span style={{ width: "130pt", height: `${PITCH - 4}pt`, boxSizing: "border-box", borderBottom: WRITE }} />
       </div>
-    </header>
+    </div>
   )
 }
 
@@ -726,7 +729,6 @@ export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: `${BLOCK_GAP}pt`,
           boxSizing: "border-box",
           height: "100%",
           padding: `${MARGIN_TOP} ${MARGIN_X} ${MARGIN_BOTTOM}`,
@@ -738,11 +740,13 @@ export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
         }}
       >
         <Watermark />
-        <FormHeader title={def.title} />
-        {def.blocks.some((b) => b.kind === "statements") && <Statements />}
-        {def.blocks.map((b, i) => (
-          <RenderBlock key={i} block={b} />
-        ))}
+        <FormHeader />
+        <div style={{ display: "flex", flexDirection: "column", gap: `${BLOCK_GAP}pt`, margin: `0 ${BODY_INSET}` }}>
+          <FormTitle title={def.title} />
+          {def.blocks.map((block, i) => (
+            <RenderBlock key={i} block={block} />
+          ))}
+        </div>
       </div>
     </div>
   )
