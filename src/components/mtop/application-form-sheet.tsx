@@ -30,9 +30,9 @@ const FONT = {
 const HEADING = { fontWeight: 700, fontSize: `${FONT.heading}pt`, lineHeight: 1.2 } as const
 
 /** One writing line, from rule to rule. */
-const PITCH = 27
+const PITCH = 25
 /** Space between blocks on the page. */
-const BLOCK_GAP = 10
+const BLOCK_GAP = 11
 /** Space between the groups inside one field grid. */
 const GROUP_GAP = 9
 
