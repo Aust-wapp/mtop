@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 /** Seven A4 application forms with shared paper-form typography and section frames. */
 
@@ -52,6 +52,22 @@ const LABEL_GAP = 5
 const BODY_INSET = "3mm"
 const SECTION_PADDING = "6pt 10pt 9pt"
 const SECTION_FRAME = { border: STROKE, breakInside: "avoid" } as const
+
+/** Rebalance only the four longer forms, from the title down; keep the header and signing space intact. */
+const UNDERTAKING_BODY_SPACING = {
+  "--mtop-row-pitch": "21pt",
+  "--mtop-block-gap": "7pt",
+  "--mtop-group-gap": "7pt",
+  "--mtop-section-padding": "4pt 10pt 6pt",
+  "--mtop-heading-padding": "3pt 10pt",
+  "--mtop-title-padding": "5pt 0 0",
+  "--mtop-control-padding": "3pt",
+  "--mtop-control-height": "18pt",
+} as CSSProperties
+
+const ROW_PITCH = `var(--mtop-row-pitch, ${PITCH}pt)`
+const ROW_GROUP_GAP = `var(--mtop-group-gap, ${GROUP_GAP}pt)`
+const BOX_PADDING = `var(--mtop-section-padding, ${SECTION_PADDING})`
 
 export const APPLICATION_FORM_TYPES = [
   "new-franchise",
@@ -299,12 +315,17 @@ export const APPLICATION_FORM_TITLES = APPLICATION_FORM_TYPES.map((type) => ({
   title: FORMS[type].title,
 }))
 
-const UNDERTAKING = [
-  "That the applicant is financially capable of maintaining the operation of the proposed motorcab / tri-wheeler service.",
-  "That the applicant is willing and ready to comply with the ordinances, resolutions, rules and regulations imposed by the City Government of Ozamiz.",
-  "The public necessity and convenience demand the immediate approval of this application.",
-  "WHEREFORE, IT IS MOST RESPECTFULLY prayed unto His Honor, the City Mayor that the aforementioned application be issued a Motorized Tricycle Operator’s Permit to operate a motorcab / tri-wheeler service in the route applied for.",
-]
+const UNDERTAKING = {
+  introduction: "Isip aplikante sa Motorized Tricycle Operator's Permit (MTOP) sa City Government of Ozamiz, boluntaryo kong miuyon ug misaad nga akong tumanon ang mosunod:",
+  provisions: [
+    "Ako mosaad nga motuman sa tanang balaod, ordinansa, ug lagda sa City Government of Ozamiz, LTO, ug ubang ahensya. Padaganon nako ang akong motorcab sa luwas ug hapsay nga paagi nga dili makapahamak sa publiko.",
+    "Ako motugot nga inspeksyonon sa mga awtorisadong opisyal sa City Government, IBPLS, MTOP Focal Person, o uban pang gitugotan ang akong motorcab, dokumento, ug rekord bisan kanus-a. Dili ko mobalibad kung husto nga gipangayo ang inspeksyon.",
+    "Ako nagpamatuod nga tinuod, sakto, ug kompleto ang tanang impormasyon ug dokumento nga akong gisumite. Nasabtan nako nga ang paghatag og bakak nga impormasyon mahimong hinungdan sa dili pag-aprobar, pagsuspenso, o pagkansela sa akong permit/prangkisa, ug mahimo usab kong kasuhan sumala sa balaod (perjury).",
+    "Ako motugot nga kolektahon, gamiton, iproseso, ug tipigan sa City Government of Ozamiz ang akong personal nga impormasyon alang lamang sa opisyal nga proseso sa gobyerno. Kini protektahan sumala sa Data Privacy Act ug dili ihatag sa uban nga walay hustong awtoridad.",
+    "Ako mosaad nga kanunay updated ug valid ang akong mga dokumento ug rehistro, ug ang akong motorcab luwas, maayo ang kondisyon, adunay saktong insurance, ug nagsunod sa safety standards. Magpa-renew ko sa dili pa ma-expire ang akong permit/prangkisa ug mobayad sa tanang bayranan sa hustong oras.",
+    "Ako nakasabot ug miuyon nga ang dili pagtuman sa bisan unsang kondisyon mahimong hinungdan sa awtomatikong pagkansela sa akong permit/prangkisa, bisan walay dugang pahibalo.",
+  ],
+}
 /** A field label. A parenthetical note ("(if changed)") is set lighter so it does not outweigh the name. */
 function Label({ text }: { text: string }) {
   const m = /^(.*?)( \([^)]*\))(:?)$/.exec(text)
@@ -322,20 +343,20 @@ const labelStyle = {
   display: "flex",
   alignItems: "flex-end",
   boxSizing: "border-box",
-  height: `${PITCH}pt`,
+  height: ROW_PITCH,
   whiteSpace: "nowrap",
   fontWeight: 700,
   lineHeight: 1.1,
 } as const
 
 /** A writing line the width of its cell. */
-function Rule({ column, pitch = PITCH }: { column: string; pitch?: number }) {
+function Rule({ column, pitch = ROW_PITCH }: { column: string; pitch?: string }) {
   return (
     <div
       style={{
         gridColumn: column,
         boxSizing: "border-box",
-        height: `${pitch}pt`,
+        height: pitch,
         borderBottom: WRITE,
       }}
     />
@@ -361,20 +382,20 @@ function FieldGrid({
     const min = i === 0 ? labelMin : across === 2 ? LABEL_MIN_RIGHT : 0
     return `minmax(${min}pt, max-content) minmax(0, 1fr)`
   }).join(" ")
-  const pitch = PITCH * pitchScale
+  const pitch = `calc(${ROW_PITCH} * ${pitchScale})`
 
   return (
     <div
       style={{
         display: "grid",
         gridTemplateColumns: columns,
-        gridTemplateRows: rows.map((r) => (r === "gap" ? `${GROUP_GAP}pt` : `${pitch}pt`)).join(" "),
+        gridTemplateRows: rows.map((r) => (r === "gap" ? ROW_GROUP_GAP : pitch)).join(" "),
         fontSize: `${FONT.body}pt`,
       }}
     >
       {rows.map((r, y) => {
         if (r === "gap") {
-          return <div key={y} style={{ gridColumn: "1 / -1", height: `${GROUP_GAP}pt`, alignSelf: "start" }} />
+          return <div key={y} style={{ gridColumn: "1 / -1", height: ROW_GROUP_GAP, alignSelf: "start" }} />
         }
         return r.labels.map((label, x) => {
           const last = x === r.labels.length - 1
@@ -384,7 +405,7 @@ function FieldGrid({
               key={`${y}-${x}-l`}
               style={{
                 ...labelStyle,
-                height: `${pitch}pt`,
+                height: pitch,
                 gridColumn: String(x * 2 + 1),
                 paddingLeft: x > 0 ? `${CELL_GAP}pt` : 0,
                 paddingRight: `${LABEL_GAP}pt`,
@@ -412,15 +433,16 @@ function Lines({ lines, labelMin = LABEL_MIN }: { lines: LineItem[]; labelMin?: 
     <div style={{ fontSize: `${FONT.body}pt` }}>
       {lines.map((l, i) =>
         l === "gap" ? (
-          <div key={i} style={{ height: `${GROUP_GAP}pt` }} />
+          <div key={i} style={{ height: ROW_GROUP_GAP }} />
         ) : (
           <div
             key={l.label}
-            style={{ display: "flex", width: "100%", height: `${PITCH}pt` }}
+            style={{ display: "flex", width: "100%", height: ROW_PITCH }}
           >
             <div
               style={{
                 ...labelStyle,
+                height: ROW_PITCH,
                 flex: "none",
                 minWidth: `${labelMin}pt`,
                 paddingRight: `${LABEL_GAP}pt`,
@@ -435,7 +457,7 @@ function Lines({ lines, labelMin = LABEL_MIN }: { lines: LineItem[]; labelMin?: 
                 flex: 1,
                 minWidth: 0,
                 boxSizing: "border-box",
-                height: `${PITCH}pt`,
+                height: ROW_PITCH,
                 borderBottom: WRITE,
               }}
             />
@@ -492,7 +514,7 @@ function Reason({ options }: { options: string[] }) {
 
 function SectionHeading({ title }: { title: string }) {
   return (
-    <div style={{ ...HEADING, background: "#ededed", borderBottom: STROKE, padding: "5pt 10pt" }}>
+    <div style={{ ...HEADING, background: "#ededed", borderBottom: STROKE, padding: "var(--mtop-heading-padding, 5pt 10pt)" }}>
       {title}
     </div>
   )
@@ -503,7 +525,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section style={SECTION_FRAME}>
       <SectionHeading title={title} />
-      <div style={{ padding: SECTION_PADDING }}>{children}</div>
+      <div style={{ padding: BOX_PADDING }}>{children}</div>
     </section>
   )
 }
@@ -537,7 +559,7 @@ function Compare({ left, right }: { left: Panel; right: Panel }) {
           }}
         >
           <SectionHeading title={p.title} />
-          <div style={{ padding: SECTION_PADDING }}>
+          <div style={{ padding: BOX_PADDING }}>
             <FieldGrid rows={p.rows} labelMin={100} pitchScale={1.1} />
           </div>
         </div>
@@ -564,16 +586,19 @@ function Signature() {
   )
 }
 
-/** Original four paragraphs, after the information sections and before signing. */
+/** Shared Cebuano introduction and six provisions, before signing. */
 function Undertaking() {
   return (
     <Section title="UNDERTAKING">
-      <div style={{ fontFamily: SANS, fontSize: `${FONT.undertaking}pt`, fontWeight: 400, lineHeight: 1.4, textAlign: "left" }}>
-        {UNDERTAKING.map((text, i) => (
-          <p key={text} style={{ margin: i === 0 ? 0 : "5pt 0 0", textIndent: "0.5cm" }}>
-            {text}
-          </p>
-        ))}
+      <div style={{ fontSize: `${FONT.undertaking}pt`, fontWeight: 400, lineHeight: 1.4, textAlign: "left", overflowWrap: "break-word" }}>
+        <p style={{ margin: 0 }}>{UNDERTAKING.introduction}</p>
+        <ol style={{ listStyleType: "decimal", listStylePosition: "outside", paddingLeft: "14pt", margin: "4pt 0 0" }}>
+          {UNDERTAKING.provisions.map((text, i) => (
+            <li key={text} style={{ paddingLeft: "2pt", marginTop: i === 0 ? 0 : "4pt", breakInside: "avoid" }}>
+              {text}
+            </li>
+          ))}
+        </ol>
       </div>
     </Section>
   )
@@ -653,7 +678,7 @@ function FormTitle({ title }: { title: string }) {
     <div>
       <div
         style={{
-          padding: "7pt 0 0",
+          padding: "var(--mtop-title-padding, 7pt 0 0)",
           textAlign: "center",
           fontWeight: 700,
           fontSize: `${FONT.title}pt`,
@@ -668,14 +693,14 @@ function FormTitle({ title }: { title: string }) {
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "flex-end",
-          paddingTop: "5pt",
+          paddingTop: "var(--mtop-control-padding, 5pt)",
           fontSize: `${FONT.body}pt`,
           fontWeight: 700,
           lineHeight: 1.1,
         }}
       >
         <span style={{ whiteSpace: "nowrap", paddingRight: `${LABEL_GAP}pt` }}>Control No.:</span>
-        <span style={{ width: "130pt", height: `${PITCH - 4}pt`, boxSizing: "border-box", borderBottom: WRITE }} />
+        <span style={{ width: "130pt", height: `var(--mtop-control-height, ${PITCH - 4}pt)`, boxSizing: "border-box", borderBottom: WRITE }} />
       </div>
     </div>
   )
@@ -710,6 +735,7 @@ function Watermark() {
 /** The sheet: the chosen form, one to an A4 page. */
 export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
   const def = FORMS[type]
+  const hasUndertaking = def.blocks.some((block) => block.kind === "undertaking")
 
   return (
     <div
@@ -722,7 +748,6 @@ export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
         fontFamily: SANS,
         fontSize: `${FONT.body}pt`,
         boxSizing: "border-box",
-        overflow: "hidden",
       }}
     >
       <div
@@ -741,7 +766,13 @@ export function ApplicationFormSheet({ type }: { type: ApplicationFormType }) {
       >
         <Watermark />
         <FormHeader />
-        <div style={{ display: "flex", flexDirection: "column", gap: `${BLOCK_GAP}pt`, margin: `0 ${BODY_INSET}` }}>
+        <div style={{
+          ...(hasUndertaking ? UNDERTAKING_BODY_SPACING : {}),
+          display: "flex",
+          flexDirection: "column",
+          gap: `var(--mtop-block-gap, ${BLOCK_GAP}pt)`,
+          margin: `0 ${BODY_INSET}`,
+        }}>
           <FormTitle title={def.title} />
           {def.blocks.map((block, i) => (
             <RenderBlock key={i} block={block} />
