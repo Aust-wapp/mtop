@@ -316,13 +316,13 @@ export const APPLICATION_FORM_TITLES = APPLICATION_FORM_TYPES.map((type) => ({
 }))
 
 const UNDERTAKING = {
-  introduction: "Isip aplikante sa Motorized Tricycle Operator's Permit (MTOP) sa City Government of Ozamiz, boluntaryo kong miuyon ug misaad nga akong tumanon ang mosunod:",
+  introduction: "Isip aplikante sa Motorized Tricycle Operator's Permit (MTOP) sa City Government of Ozamiz, boluntaryo kong miuyon ug misaad nga akong tumanon ang sumusunod:",
   provisions: [
     "Ako mosaad nga motuman sa tanang balaod, ordinansa, ug lagda sa City Government of Ozamiz, LTO, ug ubang ahensya. Padaganon nako ang akong motorcab sa luwas ug hapsay nga paagi nga dili makapahamak sa publiko.",
-    "Ako motugot nga inspeksyonon sa mga awtorisadong opisyal sa City Government, IBPLS, MTOP Focal Person, o uban pang gitugotan ang akong motorcab, dokumento, ug rekord bisan kanus-a. Dili ko mobalibad kung husto nga gipangayo ang inspeksyon.",
+    "Ako motugot nga inspeksyonon ang akong motorcab sa mga awtorisadong opisyal sa City Government uban sa akong dokumento, ug rekord bisan kanus-a. Dili ko mobalibad kung husto nga gipangayo ang inspeksyon.",
     "Ako nagpamatuod nga tinuod, sakto, ug kompleto ang tanang impormasyon ug dokumento nga akong gisumite. Nasabtan nako nga ang paghatag og bakak nga impormasyon mahimong hinungdan sa dili pag-aprobar, pagsuspenso, o pagkansela sa akong permit/prangkisa, ug mahimo usab kong kasuhan sumala sa balaod (perjury).",
     "Ako motugot nga kolektahon, gamiton, iproseso, ug tipigan sa City Government of Ozamiz ang akong personal nga impormasyon alang lamang sa opisyal nga proseso sa gobyerno. Kini protektahan sumala sa Data Privacy Act ug dili ihatag sa uban nga walay hustong awtoridad.",
-    "Ako mosaad nga kanunay updated ug valid ang akong mga dokumento ug rehistro, ug ang akong motorcab luwas, maayo ang kondisyon, adunay saktong insurance, ug nagsunod sa safety standards. Magpa-renew ko sa dili pa ma-expire ang akong permit/prangkisa ug mobayad sa tanang bayranan sa hustong oras.",
+    "Ako mosaad nga kanunay VALID ug UPDATED ang akong mga dokumento ug rehistro, ug ang akong motorcab luwas, maayo ang kondisyon, adunay saktong insurance, ug nagsunod sa safety standards. Magpa-renew ko sa dili pa ma-expire ang akong permit/prangkisa ug mobayad sa tanang bayranan sa hustong oras.",
     "Ako nakasabot ug miuyon nga ang dili pagtuman sa bisan unsang kondisyon mahimong hinungdan sa awtomatikong pagkansela sa akong permit/prangkisa, bisan walay dugang pahibalo.",
   ],
 }
@@ -723,7 +723,7 @@ function Watermark() {
         // Multiply drops the JPEG's white square into the paper, leaving only
         // the seal, tinted back by the opacity so handwriting and photocopies
         // stay legible over it.
-        opacity: 0.05,
+        opacity: 0.08,
         mixBlendMode: "multiply",
         zIndex: -1,
         pointerEvents: "none",
