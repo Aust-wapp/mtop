@@ -194,13 +194,13 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
             than in the document.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mayor_name">City Mayor</Label>
             <Input
               id="mayor_name"
               placeholder="ATTY. JUAN DELA CRUZ"
-              className="w-80"
+              className="w-full max-w-80"
               {...register("mayor_name")}
             />
             {errors.mayor_name && (
@@ -214,7 +214,7 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
             <Input
               id="city_treasurer_name"
               placeholder="CITY TREASURER NAME"
-              className="w-80"
+              className="w-full max-w-80"
               {...register("city_treasurer_name")}
             />
             {errors.city_treasurer_name && (
