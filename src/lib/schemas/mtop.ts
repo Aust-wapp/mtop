@@ -80,6 +80,7 @@ const franchiseTransactionBaseSchema = z.object({
   // Staged, not applied — mtop.grant_franchise() applies these to the
   // franchise only once the transaction is actually granted. See
   // replace_unit / transfer_owner in 20260413000015_grant_effects.sql.
+  new_make: z.string().trim().max(60).optional(),
   new_motor_number: z.string().trim().optional(),
   new_chassis_number: z.string().trim().optional(),
   new_plate_number: z.string().trim().optional(),
@@ -120,6 +121,13 @@ export const franchiseTransactionSchema = franchiseTransactionBaseSchema.superRe
     }
 
     if (data.transaction_type_code === "change_unit") {
+      if (!data.new_make) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["new_make"],
+          message: "New make or brand is required for a change of unit",
+        })
+      }
       if (!data.new_motor_number) {
         ctx.addIssue({
           code: "custom",
@@ -214,7 +222,8 @@ export const assessmentSchema = z.object({
     .default(0),
   annual_confirmation_transaction_fee: z.coerce.number().min(0).default(0),
   reissuance_transaction_fee: z.coerce.number().min(0).default(0),
-  // Closure only; default 0 so other transactions don't have to mention them.
+  // Closure uses its existing schedule; Change Unit validates its optional
+  // fixed fee in the assessment action.
   certification_fee: z.coerce.number().min(0).default(0),
   closure_fee: z.coerce.number().min(0).default(0),
 })
@@ -260,6 +269,11 @@ export const systemSettingsSchema = z.object({
     .default(""),
   // Printed under "APPROVED:" on the confirmation slip.
   mayor_name: z
+    .string()
+    .trim()
+    .max(80, "Name is too long")
+    .default(""),
+  city_treasurer_name: z
     .string()
     .trim()
     .max(80, "Name is too long")

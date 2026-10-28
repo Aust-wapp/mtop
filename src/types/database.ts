@@ -144,6 +144,7 @@ export interface MtopApplication {
   // Staged by createFranchiseTransaction, applied to the franchise only when
   // mtop.grant_franchise() runs the matching effect — see CLAUDE.md →
   // "Transactions and Requirements".
+  new_make: string | null
   new_motor_number: string | null
   new_chassis_number: string | null
   new_plate_number: string | null
@@ -176,9 +177,11 @@ export interface FranchiseUnitHistory {
   application_id: string | null
   changed_by: string | null
   changed_at: string
+  previous_make: string | null
   previous_motor_number: string | null
   previous_chassis_number: string | null
   previous_plate_number: string | null
+  new_make: string | null
   new_motor_number: string
   new_chassis_number: string
   new_plate_number: string | null
@@ -496,6 +499,7 @@ export interface MtopSchema {
         | "submitted_at"
         | "created_at"
         | "updated_at"
+        | "new_make"
         | "new_motor_number"
         | "new_chassis_number"
         | "new_plate_number"
@@ -516,6 +520,7 @@ export interface MtopSchema {
         submitted_at?: string
         created_at?: string
         updated_at?: string
+        new_make?: string | null
         new_motor_number?: string | null
         new_chassis_number?: string | null
         new_plate_number?: string | null
@@ -534,9 +539,14 @@ export interface MtopSchema {
     }
     franchise_unit_history: {
       Row: FranchiseUnitHistory
-      Insert: Omit<FranchiseUnitHistory, "id" | "changed_at"> & {
+      Insert: Omit<
+        FranchiseUnitHistory,
+        "id" | "changed_at" | "previous_make" | "new_make"
+      > & {
         id?: string
         changed_at?: string
+        previous_make?: string | null
+        new_make?: string | null
       }
       Update: Partial<Omit<FranchiseUnitHistory, "id">>
     }

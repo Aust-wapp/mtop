@@ -132,11 +132,15 @@ export function ApplicationDetail({
   application,
   settings,
   franchiseHistory,
+  closureCertificateApplicationId,
+  closureCertificateLookupError,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   application: any
   settings: SystemSettings
   franchiseHistory: FranchiseHistoryEvent[]
+  closureCertificateApplicationId: string | null
+  closureCertificateLookupError: boolean
 }) {
   const { can } = usePermissions()
   const [error, setError] = useState<string | null>(null)
@@ -244,6 +248,10 @@ export function ApplicationDetail({
 
   const requirements = application.requirements ?? []
   const transactionType = application.transaction_type
+  const showClosedFranchiseClosureAccess =
+    application.status === "granted" &&
+    transactionType?.code === "new_franchise" &&
+    franchise?.franchise_status === "closed"
   const franchiseStatusDisplay = getFranchiseStatusDisplay(
     franchise?.franchise_status,
     franchise?.granted_until,
@@ -271,7 +279,7 @@ export function ApplicationDetail({
         title={franchise?.mtop_number ?? "Pending MTOP Number"}
         subtitle={`${transactionType?.name ?? "Application"} · ${franchise?.applicant_name ?? ""} — ${franchise?.route ?? "No route"}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {franchise?.id && (
               <Link
                 href={`/dashboard/franchises/${franchise.id}`}
@@ -281,6 +289,18 @@ export function ApplicationDetail({
                 Franchise record
               </Link>
             )}
+            {showClosedFranchiseClosureAccess &&
+              closureCertificateApplicationId && (
+                <Link
+                  href={`/print/certification/closure/${closureCertificateApplicationId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Certification of Closure
+                </Link>
+              )}
             {application.status === "granted" && (
               <>
                 <Button
@@ -309,6 +329,38 @@ export function ApplicationDetail({
                   <Printer className="h-4 w-4" />
                   Print Confirmation Slip
                 </Button>
+                {transactionType?.code === "change_unit" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `/print/certification/change-unit/${application.id}`,
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                  >
+                    <Printer className="h-4 w-4" />
+                    Certification of Change Unit
+                  </Button>
+                )}
+                {transactionType?.code === "closure" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `/print/certification/closure/${application.id}`,
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                  >
+                    <Printer className="h-4 w-4" />
+                    Certification of Closure
+                  </Button>
+                )}
               </>
             )}
             <StatusBadge status={application.status} />
@@ -322,6 +374,21 @@ export function ApplicationDetail({
           </div>
         }
       />
+
+      {showClosedFranchiseClosureAccess &&
+        !closureCertificateApplicationId && (
+          <Alert className="border-amber-200 bg-amber-50">
+            <AlertCircle className="h-4 w-4 text-amber-700" />
+            <AlertTitle className="text-amber-900">
+              Closure certification unavailable
+            </AlertTitle>
+            <AlertDescription className="text-amber-800">
+              {closureCertificateLookupError
+                ? "The approved Closure record could not be checked. Refresh this page and try again."
+                : "This franchise is Closed, but no Granted Closure application exists. No Closure certification is available."}
+            </AlertDescription>
+          </Alert>
+        )}
 
       {error && (
         <Alert variant="destructive">

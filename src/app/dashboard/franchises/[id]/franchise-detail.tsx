@@ -16,9 +16,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
-import { AlertCircle, ArrowLeft } from "lucide-react"
+import { AlertCircle, ArrowLeft, Printer } from "lucide-react"
+import { findLatestGrantedClosureApplication } from "@/lib/certificate-access"
 import { getFranchiseStatusDisplay } from "@/lib/utils/franchise-status"
 import { FranchiseStatusBadge } from "@/components/shared/franchise-status-badge"
 import type { FranchiseHistoryEvent } from "@/lib/audit"
@@ -80,6 +81,8 @@ export function FranchiseDetail({
     .sort((left, right) =>
       (left.granted_at ?? "").localeCompare(right.granted_at ?? "")
     )[0]
+  const closureApplication = findLatestGrantedClosureApplication(applications)
+  const isClosed = franchise.franchise_status === "closed"
 
   return (
     <div className="space-y-6">
@@ -106,7 +109,18 @@ export function FranchiseDetail({
             : franchise.applicant_name
         }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {isClosed && closureApplication && (
+              <Link
+                href={`/print/certification/closure/${closureApplication.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <Printer className="h-4 w-4" />
+                Print Certification of Closure
+              </Link>
+            )}
             {expiration && (
               <ExpirationBadge
                 status={expiration.status}
@@ -119,6 +133,19 @@ export function FranchiseDetail({
           </div>
         }
       />
+
+      {isClosed && !closureApplication && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-700" />
+          <AlertTitle className="text-amber-900">
+            Closure certification unavailable
+          </AlertTitle>
+          <AlertDescription className="text-amber-800">
+            This franchise is Closed, but no Granted Closure application exists.
+            No Closure certification is available.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>

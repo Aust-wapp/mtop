@@ -22,6 +22,8 @@ export interface SystemSettings {
   ctms_contact_number: string
   /** Signatory on the confirmation slip. Seeded by 20260413000025. */
   mayor_name: string
+  /** Signatory on the City Treasurer's Office certifications. */
+  city_treasurer_name: string
 }
 
 const DEFAULTS: SystemSettings = {
@@ -30,6 +32,7 @@ const DEFAULTS: SystemSettings = {
   abandonment_grace_days: DEFAULT_ABANDONMENT_GRACE_DAYS,
   ctms_contact_number: "",
   mayor_name: "",
+  city_treasurer_name: "CITY TREASURER",
 }
 
 export async function getSystemSettings(): Promise<{
@@ -54,6 +57,7 @@ export async function getSystemSettings(): Promise<{
         "abandonment_grace_days",
         "ctms_contact_number",
         "mayor_name",
+        "city_treasurer_name",
       ])
 
     if (error) return { error: error.message, data: DEFAULTS }
@@ -79,6 +83,12 @@ export async function getSystemSettings(): Promise<{
       if (row.key === "mayor_name") {
         settings.mayor_name =
           typeof row.value === "string" ? row.value : DEFAULTS.mayor_name
+      }
+      if (row.key === "city_treasurer_name") {
+        settings.city_treasurer_name =
+          typeof row.value === "string"
+            ? row.value
+            : DEFAULTS.city_treasurer_name
       }
     }
 
@@ -131,6 +141,12 @@ export async function updateSystemSettings(input: SystemSettingsFormValues) {
       {
         key: "mayor_name",
         value: settings.mayor_name?.trim() ?? "",
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        key: "city_treasurer_name",
+        value: settings.city_treasurer_name?.trim() ?? "",
         updated_by: user.id,
         updated_at: new Date().toISOString(),
       },

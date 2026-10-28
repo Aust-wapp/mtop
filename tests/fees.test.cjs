@@ -30,8 +30,11 @@ const {
   assessmentFeesForStorage,
   feeLinesFromStoredAssessment,
   feeKeysFor,
+  optionalAssessmentFeeAmount,
   feeScheduleFor,
   isValidLostPlateReplacementFee,
+  isValidChangeUnitCertificationFee,
+  CHANGE_UNIT_CERTIFICATION_FEE,
   LOST_PLATE_REPLACEMENT_FEE,
 } = feeModule.exports
 
@@ -120,6 +123,34 @@ test("change unit waives parking and charges the change-of-motor fee", () => {
   assert.equal(fees.parking_fee, 0)
   assert.equal(fees.change_of_motor_fee, 1000)
   assert.equal(sumFees(fees), 1980)
+  assert.equal(fees.certification_fee, 0)
+  assert.ok(feeKeysFor("change_unit").includes("certification_fee"))
+  assert.equal(
+    optionalAssessmentFeeAmount("certification_fee", "change_unit"),
+    CHANGE_UNIT_CERTIFICATION_FEE
+  )
+  assert.equal(optionalAssessmentFeeAmount("certification_fee", "closure"), undefined)
+  assert.equal(
+    optionalAssessmentFeeAmount("replacement_plate_fee", "change_unit"),
+    LOST_PLATE_REPLACEMENT_FEE
+  )
+
+  const selectedFees = {
+    ...fees,
+    certification_fee: CHANGE_UNIT_CERTIFICATION_FEE,
+  }
+  assert.equal(sumFees(selectedFees), 2080)
+  const stored = assessmentFeesForStorage(selectedFees)
+  const reopened = feeLinesFromStoredAssessment(
+    { ...stored, total_amount: sumFees(selectedFees) },
+    "change_unit"
+  )
+  assert.equal(reopened.certification_fee, CHANGE_UNIT_CERTIFICATION_FEE)
+  assert.equal(sumFees(reopened), 2080)
+  assert.equal(isValidChangeUnitCertificationFee(0), true)
+  assert.equal(isValidChangeUnitCertificationFee(100), true)
+  assert.equal(isValidChangeUnitCertificationFee(50), false)
+  assert.equal(isValidChangeUnitCertificationFee(100.01), false)
 })
 
 test("annual confirmation is separate from the standard confirmation fee", () => {
@@ -210,6 +241,7 @@ test("closure shows two distinct fee lines that total ₱600", () => {
   assert.equal(fees.certification_fee, 100)
   assert.equal(fees.closure_fee, 500)
   assert.equal(sumFees(fees), 600)
+  assert.ok(feeKeysFor("closure").includes("certification_fee"))
   assert.ok(STANDARD_FEE_KEYS.every((key) => fees[key] === 0))
 })
 

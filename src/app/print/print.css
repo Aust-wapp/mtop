@@ -34,18 +34,276 @@
   box-shadow: 0 8px 32px rgb(0 0 0 / 45%);
 }
 
-@media print {
-  /* 8.5 x 13in folio, matching the source design's 612 x 936pt page. */
-  @page {
-    size: 8.5in 13in;
-    margin: 0;
-  }
+/* A4 is the default print stock. The legacy card and slip select folio below. */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
 
-  html,
-  body {
+@page mtop-long-bond {
+  size: 8.5in 13in;
+  margin: 0;
+}
+
+.certificate-preview {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+}
+
+.mtop-certificate {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 12mm 17mm 8mm;
+  border: 0.5pt solid #222;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 45%);
+  font-size: 12pt;
+  line-height: 1.3;
+}
+
+.certificate-letterhead {
+  display: grid;
+  grid-template-columns: 1fr 2.5fr 1fr;
+  align-items: center;
+  gap: 3mm;
+  min-height: 29mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.75pt solid #111;
+  text-align: center;
+}
+
+.certificate-logos {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.5mm;
+}
+
+.certificate-logos img {
+  display: block;
+  max-width: 15mm;
+  max-height: 16mm;
+  object-fit: contain;
+}
+
+.certificate-logos-right {
+  justify-content: flex-end;
+}
+
+.certificate-office {
+  display: flex;
+  flex-direction: column;
+  font-size: 10pt;
+  line-height: 1.2;
+}
+
+.certificate-office strong:first-of-type {
+  margin-top: 1mm;
+  font-size: 12pt;
+}
+
+.certificate-office small {
+  font-size: 8pt;
+}
+
+.mtop-certificate h1 {
+  margin: 7mm 0 9mm;
+  font-size: 17pt;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-align: center;
+}
+
+.certificate-salutation {
+  margin: 0 0 5mm;
+  font-weight: 700;
+}
+
+.certificate-operator-name,
+.certificate-signatory-name {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.certificate-copy {
+  margin: 0;
+  text-indent: 8mm;
+  text-align: justify;
+}
+
+.certificate-vehicle {
+  margin: 3mm 0 1.5mm 6mm;
+  break-inside: avoid;
+}
+
+.certificate-vehicle > strong {
+  display: block;
+  margin-bottom: 1mm;
+}
+
+.certificate-vehicle dl {
+  margin: 0;
+}
+
+.certificate-vehicle-row {
+  display: grid;
+  grid-template-columns: 31mm 5mm 1fr;
+  margin-left: 6mm;
+}
+
+.certificate-vehicle-row dt::after {
+  content: ":";
+  margin-left: 0;
+}
+
+.certificate-vehicle-row dd {
+  grid-column: 3;
+  margin: 0;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.certificate-vehicle-value {
+  text-transform: uppercase;
+}
+
+.certificate-transition {
+  margin-top: 3mm;
+}
+
+.certificate-closure-copy {
+  margin-top: 0;
+}
+
+.mtop-certificate-closure h1 {
+  margin-bottom: 21mm;
+}
+
+.mtop-certificate-closure .certificate-salutation {
+  margin-bottom: 9mm;
+}
+
+.mtop-certificate-closure .certificate-closure-copy {
+  margin-top: 3mm;
+}
+
+.mtop-certificate-closure .certificate-purpose {
+  margin-top: 13mm;
+}
+
+.mtop-certificate-closure .certificate-given {
+  margin-top: 20mm;
+}
+
+.certificate-purpose {
+  margin: 5mm 0 0;
+  text-indent: 8mm;
+  text-align: justify;
+}
+
+.certificate-given {
+  margin: 6mm 0 0;
+  text-indent: 0;
+  text-align: center;
+}
+
+.certificate-signature-spacer {
+  flex: 1 1 50mm;
+  min-height: 0;
+  max-height: 50mm;
+}
+
+.mtop-certificate-closure .certificate-signature-spacer {
+  max-height: 17mm;
+}
+
+.mtop-certificate-change-unit .certificate-signature-spacer {
+  flex: 0 0 9mm;
+  max-height: 9mm;
+}
+
+.certificate-issuance-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0 0 0 6mm;
+}
+
+.certificate-signature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 65mm;
+  text-align: left;
+}
+
+.certificate-signature-space {
+  height: 16mm;
+  width: 65mm;
+}
+
+.certificate-signature strong {
+  font-size: 12pt;
+}
+
+.certificate-signature span {
+  font-size: 11pt;
+  font-style: italic;
+}
+
+.certificate-issuance {
+  align-self: flex-start;
+  margin: 6mm 0 0;
+  min-width: 74mm;
+  font-size: 10pt;
+}
+
+.certificate-issuance > div {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  gap: 2mm;
+}
+
+.certificate-issuance dt {
+  font-weight: 400;
+}
+
+.certificate-issuance dd {
+  margin: 0;
+}
+
+.certificate-footer-spacer {
+  flex: 1 1 6mm;
+  min-height: 6mm;
+}
+
+.certificate-address {
+  margin-top: 0;
+  padding-top: 2mm;
+  border-top: 0.5pt solid #222;
+  font-size: 8pt;
+  text-align: center;
+}
+
+@media print {
+  html:has(.certificate-preview),
+  body:has(.certificate-preview) {
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0;
     padding: 0;
     background: #fff;
+  }
+
+  body:has(.certificate-preview) {
+    display: block;
   }
 
   .no-print {
@@ -57,12 +315,33 @@
     min-height: 0;
   }
 
+  .certificate-preview {
+    display: block;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .mtop-certificate {
+    width: 210mm;
+    height: 297mm;
+    min-height: 0;
+    margin: 0;
+    overflow: visible;
+    box-shadow: none;
+    break-inside: auto;
+    break-after: auto;
+  }
+
   .card-stage {
     padding: 0;
   }
 
   .mtop-card,
   .mtop-slip {
+    page: mtop-long-bond;
     box-shadow: none;
     break-inside: avoid;
   }

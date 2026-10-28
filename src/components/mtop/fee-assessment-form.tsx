@@ -32,7 +32,7 @@ import {
   feeLinesFromStoredAssessment,
   feeScheduleFor,
   feeKeysFor,
-  LOST_PLATE_REPLACEMENT_FEE,
+  optionalAssessmentFeeAmount,
   type FeeKey,
 } from "@/lib/fees"
 import type { MtopStatus } from "@/types/database"
@@ -143,9 +143,14 @@ function AssessmentFormInner({
     if (!previous) return base
     for (const key of applicableFeeKeys) {
       const previousValue = Number(previousFees?.[key] ?? 0)
+      const fixedOptionalAmount = optionalAssessmentFeeAmount(
+        key,
+        transactionCode
+      )
       base[key] =
-        key === "replacement_plate_fee" &&
-        previousValue !== LOST_PLATE_REPLACEMENT_FEE
+        fixedOptionalAmount !== undefined &&
+        previousValue !== 0 &&
+        previousValue !== fixedOptionalAmount
           ? 0
           : previousValue
     }
@@ -244,24 +249,30 @@ function AssessmentFormInner({
                     : "Applies to a late renewal only"}
                 </p>
               )}
-            {keys.map((key) => (
-              <AssessmentInputRow
-                key={key}
-                feeKey={key}
-                value={fees[key]}
-                readOnly={!applicableFeeKeys.has(key)}
-                disabled={submitting}
-                onChange={(value) => updateFee(key, value)}
-                onOptionalToggle={(checked) =>
-                  setFees((prev) => ({
-                    ...prev,
-                    replacement_plate_fee: checked
-                      ? LOST_PLATE_REPLACEMENT_FEE
-                      : 0,
-                  }))
-                }
-              />
-            ))}
+            {keys.map((key) => {
+              const optionalFixedAmount = optionalAssessmentFeeAmount(
+                key,
+                transactionCode
+              )
+
+              return (
+                <AssessmentInputRow
+                  key={key}
+                  feeKey={key}
+                  value={fees[key]}
+                  readOnly={!applicableFeeKeys.has(key)}
+                  disabled={submitting}
+                  onChange={(value) => updateFee(key, value)}
+                  optionalFixedAmount={optionalFixedAmount}
+                  onOptionalToggle={(checked) =>
+                    setFees((prev) => ({
+                      ...prev,
+                      [key]: checked ? optionalFixedAmount ?? 0 : 0,
+                    }))
+                  }
+                />
+              )
+            })}
             {sectionIndex < FEE_SECTIONS.length - 1 && <Separator />}
           </div>
         ))}
@@ -298,6 +309,7 @@ function AssessmentInputRow({
   value,
   readOnly,
   disabled,
+  optionalFixedAmount,
   onChange,
   onOptionalToggle,
 }: {
@@ -305,13 +317,14 @@ function AssessmentInputRow({
   value: number
   readOnly: boolean
   disabled: boolean
+  optionalFixedAmount?: number
   onChange: (value: string) => void
   onOptionalToggle: (checked: boolean) => void
 }) {
   const inputId = `assessment-${feeKey}`
 
-  if (feeKey === "replacement_plate_fee") {
-    const checked = value === LOST_PLATE_REPLACEMENT_FEE
+  if (optionalFixedAmount !== undefined) {
+    const checked = value === optionalFixedAmount
     const checkboxId = `${inputId}-toggle`
 
     return (

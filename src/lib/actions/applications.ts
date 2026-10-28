@@ -627,6 +627,7 @@ export async function createFranchiseTransaction(
         franchise_id: franchise.id,
         transaction_type_id: transactionType.id,
         created_by: user.id,
+        new_make: isChangeUnit ? input.new_make || null : null,
         new_motor_number: isChangeUnit ? input.new_motor_number : null,
         new_chassis_number: isChangeUnit ? input.new_chassis_number : null,
         new_plate_number: isChangeUnit ? input.new_plate_number || null : null,

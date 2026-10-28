@@ -82,6 +82,7 @@ export function FranchiseTransactionForm({
       plate_number: franchise.plate_number ?? "",
       route: franchise.route ?? "",
       make: franchise.make ?? "",
+      new_make: franchise.make ?? "",
       day_off: franchise.day_off ?? "",
       association_id: franchise.association_id ?? "",
       reason: "",
@@ -370,6 +371,20 @@ export function FranchiseTransactionForm({
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="new_make">New Make / Brand</Label>
+                    <Input
+                      id="new_make"
+                      {...register("new_make")}
+                      aria-invalid={!!errors.new_make}
+                    />
+                    {errors.new_make && (
+                      <p className="text-xs text-destructive">
+                        {errors.new_make.message}
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="new_motor_number">New Motor Number</Label>
                     <Input

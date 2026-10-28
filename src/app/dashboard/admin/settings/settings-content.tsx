@@ -39,6 +39,7 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
       abandonment_grace_days: settings.abandonment_grace_days,
       ctms_contact_number: settings.ctms_contact_number,
       mayor_name: settings.mayor_name,
+      city_treasurer_name: settings.city_treasurer_name,
     },
   })
 
@@ -205,6 +206,20 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
             {errors.mayor_name && (
               <p className="text-xs text-destructive">
                 {errors.mayor_name.message}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city_treasurer_name">City Treasurer</Label>
+            <Input
+              id="city_treasurer_name"
+              placeholder="CITY TREASURER NAME"
+              className="w-80"
+              {...register("city_treasurer_name")}
+            />
+            {errors.city_treasurer_name && (
+              <p className="text-xs text-destructive">
+                {errors.city_treasurer_name.message}
               </p>
             )}
           </div>

@@ -11,6 +11,7 @@ import {
   assessmentFeesForStorage,
   calculateFeeTotal,
   feeKeysFor,
+  isValidChangeUnitCertificationFee,
   type FeeSchedule,
 } from "@/lib/fees"
 
@@ -61,6 +62,16 @@ export async function createAssessment(
     const transactionCode = Array.isArray(transactionType)
       ? transactionType[0]?.code
       : transactionType?.code
+
+    if (
+      transactionCode === "change_unit" &&
+      !isValidChangeUnitCertificationFee(parsedFees.data.certification_fee)
+    ) {
+      return {
+        error: "Change Unit Certification Fee must be ₱0 or ₱100.",
+        data: null,
+      }
+    }
 
     const applicable = new Set<string>(feeKeysFor(transactionCode))
     const charged = Object.fromEntries(

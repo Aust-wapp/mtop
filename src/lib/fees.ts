@@ -2,9 +2,14 @@ import { differenceInDays } from "date-fns"
 import type { TransactionTypeCode } from "@/types/database"
 
 export const LOST_PLATE_REPLACEMENT_FEE = 500
+export const CHANGE_UNIT_CERTIFICATION_FEE = 100
 
 export function isValidLostPlateReplacementFee(value: number): boolean {
   return value === 0 || value === LOST_PLATE_REPLACEMENT_FEE
+}
+
+export function isValidChangeUnitCertificationFee(value: number): boolean {
+  return value === 0 || value === CHANGE_UNIT_CERTIFICATION_FEE
 }
 
 export const STANDARD_FEES = {
@@ -135,6 +140,7 @@ const APPLICABLE_FEE_KEYS: Record<TransactionTypeCode, readonly FeeKey[]> = {
   change_unit: [
     ...STANDARD_FEE_KEYS.filter((key) => key !== "parking_fee"),
     "change_of_motor_fee",
+    "certification_fee",
   ],
   annual_confirmation: ["annual_confirmation_transaction_fee"],
   reissuance: ["reissuance_transaction_fee"],
@@ -180,6 +186,22 @@ export function feeKeysFor(
     ...APPLICABLE_FEE_KEYS[transactionCode as TransactionTypeCode],
     "replacement_plate_fee",
   ]
+}
+
+/** Fixed-fee rows that use an optional checkbox in the assessment form. */
+export function optionalAssessmentFeeAmount(
+  feeKey: FeeKey,
+  transactionCode: string | null | undefined
+): number | undefined {
+  if (feeKey === "replacement_plate_fee") {
+    return LOST_PLATE_REPLACEMENT_FEE
+  }
+
+  if (feeKey === "certification_fee" && transactionCode === "change_unit") {
+    return CHANGE_UNIT_CERTIFICATION_FEE
+  }
+
+  return undefined
 }
 
 /** Sum displayed assessment rows so the amount follows the actual line items. */
