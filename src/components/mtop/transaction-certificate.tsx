@@ -180,7 +180,10 @@ export function ClosureCertificate({
 
         <p className="certificate-copy certificate-closure-copy">
           THIS IS TO CERTIFY that based on records available in this office,
-          M.T.O.P. NO. <strong>{data.mtopNumber}</strong>, MAKE/TYPE:{" "}
+          M.T.O.P. NO. <strong>{data.mtopNumber}</strong>, CAB NO.{" "}
+          <strong className="certificate-vehicle-value">
+            {data.bodyNumber || "—"}
+          </strong>, MAKE/TYPE:{" "}
           <strong className="certificate-vehicle-value">
             {data.vehicle.make || "—"}
           </strong>, MOTOR/ENGINE NO.{" "}

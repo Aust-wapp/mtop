@@ -39,6 +39,7 @@ export interface ChangeUnitCertificateData extends CertificateCommonData {
 export interface ClosureCertificateData extends CertificateCommonData {
   kind: "closure"
   closureDate: string
+  bodyNumber: string
   vehicle: CertificateVehicle
 }
 
@@ -270,6 +271,7 @@ export async function getGrantedCertificateData(
           closureDate: formatCertificateDate(
             application.granted_at ?? franchise.closed_at
           ),
+          bodyNumber: franchise.tricycle_body_number ?? "",
           vehicle: certificateVehicle({
             make: franchise.make ?? "",
             motorNumber: franchise.motor_number,

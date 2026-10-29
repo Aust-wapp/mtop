@@ -316,26 +316,28 @@ test("change-unit certificate prints the applicant and both recorded units", () 
 })
 
 test("closure certificate prints the franchise unit and cessation date", () => {
+  const closureData = {
+    kind: "closure",
+    mtopNumber: "AO-2026-00002",
+    bodyNumber: "CAB-UNIT-0002",
+    applicantName: "B. Operator",
+    applicantAddress: "Purok 8, Ozamiz City",
+    givenDate: "27th day of October, 2026",
+    closureDate: "October 26, 2026",
+    certificationFee: "₱100.00",
+    orNumber: "6350679",
+    issueDate: "October 27, 2026",
+    cityTreasurerName: "TEST CITY TREASURER",
+    vehicle: {
+      make: "Honda",
+      motorNumber: "MOTOR-C",
+      chassisNumber: "CHASSIS-C",
+      plateNumber: "PLATE-C",
+    },
+  }
   const html = ReactDOMServer.renderToStaticMarkup(
     require("react/jsx-runtime").jsx(certificateComponents.ClosureCertificate, {
-      data: {
-        kind: "closure",
-        mtopNumber: "AO-2026-00002",
-        applicantName: "B. Operator",
-        applicantAddress: "Purok 8, Ozamiz City",
-        givenDate: "27th day of October, 2026",
-        closureDate: "October 26, 2026",
-        certificationFee: "₱100.00",
-        orNumber: "6350679",
-        issueDate: "October 27, 2026",
-        cityTreasurerName: "TEST CITY TREASURER",
-        vehicle: {
-          make: "Honda",
-          motorNumber: "MOTOR-C",
-          chassisNumber: "CHASSIS-C",
-          plateNumber: "PLATE-C",
-        },
-      },
+      data: closureData,
     })
   )
 
@@ -343,6 +345,10 @@ test("closure certificate prints the franchise unit and cessation date", () => {
   assert.match(html, /THIS IS TO CERTIFY that based on records available in this office/)
   assert.match(html, /certificate-applicant-address/)
   assert.match(html, /M\.T\.O\.P\. NO\./)
+  assert.match(
+    html,
+    /M\.T\.O\.P\. NO\. <strong>AO-2026-00002<\/strong>, CAB NO\. <strong class="certificate-vehicle-value">CAB-UNIT-0002<\/strong>, MAKE\/TYPE:/
+  )
   assert.match(html, /MAKE\/TYPE:/)
   assert.match(html, /MAKE\/TYPE: <strong class="certificate-vehicle-value">Honda/)
   assert.match(html, /MOTOR\/ENGINE NO\./)
@@ -354,6 +360,16 @@ test("closure certificate prints the franchise unit and cessation date", () => {
   assert.match(html, /27th day of October, 2026/)
   assert.match(html, /O\. R\. NO\./)
   assert.match(html, /THIS CERTIFICATION is issued upon request of herein interested party/)
+
+  const htmlWithoutBodyNumber = ReactDOMServer.renderToStaticMarkup(
+    require("react/jsx-runtime").jsx(certificateComponents.ClosureCertificate, {
+      data: { ...closureData, bodyNumber: "" },
+    })
+  )
+  assert.match(
+    htmlWithoutBodyNumber,
+    /CAB NO\. <strong class="certificate-vehicle-value">—<\/strong>, MAKE\/TYPE:/
+  )
 })
 
 test("change-unit data loads applicant, vehicle history, fee, and receipt", async () => {
@@ -434,6 +450,7 @@ test("closure data loads current franchise unit and closure date", async () => {
         franchise: {
           id: "franchise-2",
           mtop_number: "AO-2026-00002",
+          tricycle_body_number: "CAB-UNIT-0002",
           applicant_name: "B. Operator",
           make: "Honda",
           motor_number: "MOTOR-C",
@@ -456,6 +473,7 @@ test("closure data loads current franchise unit and closure date", async () => {
 
   assert.equal(result.error, null)
   assert.equal(result.data.applicantName, "B. Operator")
+  assert.equal(result.data.bodyNumber, "CAB-UNIT-0002")
   assert.equal(result.data.vehicle.make, "Honda")
   assert.equal(result.data.vehicle.motorNumber, "MOTOR-C")
   assert.equal(result.data.givenDate, "27th day of October, 2026")
