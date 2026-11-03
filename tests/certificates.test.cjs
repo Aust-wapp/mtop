@@ -439,6 +439,99 @@ test("change-unit data loads applicant, vehicle history, fee, and receipt", asyn
   assert.equal(result.data.cityTreasurerName, "TEST CITY TREASURER")
 })
 
+test("change-unit certificate uses the transaction snapshot and leaves missing previous make blank", async () => {
+  certificateQueryResults = {
+    mtop_applications: {
+      data: {
+        id: "first-change-after-second",
+        status: "granted",
+        granted_at: "2026-10-27T16:00:00.000Z",
+        new_make: "Yamaha",
+        transaction_type: { code: "change_unit" },
+        franchise: {
+          id: "franchise-with-later-change",
+          mtop_number: "AO-SNGF-2026-0001",
+          applicant_name: "Current Owner",
+          make: "Suzuki",
+        },
+      },
+      error: null,
+    },
+    mtop_payments: { data: [], error: null },
+    mtop_assessments: { data: { certification_fee: 100 }, error: null },
+    system_settings: { data: null, error: null },
+    franchise_unit_history: {
+      data: {
+        previous_make: null,
+        previous_motor_number: "HONDA-MOTOR",
+        previous_chassis_number: "HONDA-CHASSIS",
+        previous_plate_number: "PLATE-1",
+        new_make: null,
+        new_motor_number: "YAMAHA-MOTOR",
+        new_chassis_number: "YAMAHA-CHASSIS",
+        new_plate_number: "PLATE-1",
+      },
+      error: null,
+    },
+  }
+
+  const result = await certificateActions.getGrantedCertificateData(
+    "first-change-after-second",
+    "change_unit"
+  )
+
+  assert.equal(result.error, null)
+  assert.equal(result.data.previousUnit.make, "")
+  assert.equal(result.data.newUnit.make, "Yamaha")
+  assert.equal(result.data.newUnit.motorNumber, "YAMAHA-MOTOR")
+})
+
+test("change-unit certificate does not invent either make from the current franchise", async () => {
+  certificateQueryResults = {
+    mtop_applications: {
+      data: {
+        id: "legacy-change-without-make",
+        status: "granted",
+        granted_at: "2026-10-27T16:00:00.000Z",
+        new_make: null,
+        transaction_type: { code: "change_unit" },
+        franchise: {
+          id: "franchise-with-later-change",
+          mtop_number: "AO-SNGF-2026-0001",
+          applicant_name: "Current Owner",
+          make: "Suzuki",
+        },
+      },
+      error: null,
+    },
+    mtop_payments: { data: [], error: null },
+    mtop_assessments: { data: null, error: null },
+    system_settings: { data: null, error: null },
+    franchise_unit_history: {
+      data: {
+        previous_make: null,
+        previous_motor_number: "OLD-MOTOR",
+        previous_chassis_number: "OLD-CHASSIS",
+        previous_plate_number: "PLATE-1",
+        new_make: null,
+        new_motor_number: "NEW-MOTOR",
+        new_chassis_number: "NEW-CHASSIS",
+        new_plate_number: "PLATE-1",
+      },
+      error: null,
+    },
+  }
+
+  const result = await certificateActions.getGrantedCertificateData(
+    "legacy-change-without-make",
+    "change_unit"
+  )
+
+  assert.equal(result.error, null)
+  assert.equal(result.data.previousUnit.make, "")
+  assert.equal(result.data.newUnit.make, "")
+})
+
 test("closure data loads current franchise unit and closure date", async () => {
   certificateQueryResults = {
     mtop_applications: {

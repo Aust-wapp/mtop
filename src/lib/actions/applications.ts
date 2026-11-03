@@ -7,7 +7,10 @@ import type {
   NewFranchiseApplicationFormValues,
   FranchiseTransactionFormValues,
 } from "@/lib/schemas/mtop"
-import { requiresReason } from "@/lib/schemas/mtop"
+import {
+  franchiseTransactionSchema,
+  requiresReason,
+} from "@/lib/schemas/mtop"
 import {
   normalizeOperatorName,
   findCoOwnerMarker,
@@ -410,6 +413,17 @@ export async function createFranchiseTransaction(
     const denied = await assertCanCreate(supabase, user.id)
     if (denied) return { error: denied, data: null }
 
+    const validation = franchiseTransactionSchema.safeParse(input)
+    if (!validation.success) {
+      return {
+        error:
+          validation.error.issues[0]?.message ??
+          "The transaction details are invalid.",
+        data: null,
+      }
+    }
+    input = validation.data
+
     // The form enforces this too, but the action is callable directly.
     if (requiresReason(input.transaction_type_code) && !input.reason?.trim()) {
       return { error: "State the reason for this transaction.", data: null }
@@ -549,12 +563,10 @@ export async function createFranchiseTransaction(
       }
     }
 
-    // Plain corrections (address, contact, route, make, day off) apply right
-    // away regardless of transaction — they are not what the transaction is
-    // *about*. Plate number is the exception on change_unit, and applicant
-    // address/contact on change_ownership: those are the subject of the
-    // transaction, so they are staged as new_* below and applied only on
-    // grant, alongside motor/chassis/owner name.
+    // Plain corrections (address, contact, route, day off) apply right away.
+    // Fields changed by the transaction itself stay staged: the replacement
+    // make, motor, chassis and optional plate on change_unit, and the
+    // successor's address/contact on change_ownership.
     const isChangeUnit = input.transaction_type_code === "change_unit"
     const isChangeOwnership = input.transaction_type_code === "change_ownership"
 
@@ -604,7 +616,9 @@ export async function createFranchiseTransaction(
     if (input.tricycle_body_number !== undefined)
       franchiseUpdates.tricycle_body_number = input.tricycle_body_number
     if (input.route !== undefined) franchiseUpdates.route = input.route
-    if (input.make !== undefined)
+    // On a Change Unit filing, make is the Previous Unit's recorded value.
+    // Only the staged new_make may change it, after the application is granted.
+    if (!isChangeUnit && input.make !== undefined)
       franchiseUpdates.make = input.make?.trim() || null
     if (input.day_off !== undefined)
       franchiseUpdates.day_off = input.day_off?.trim() || null
@@ -628,7 +642,7 @@ export async function createFranchiseTransaction(
         franchise_id: franchise.id,
         transaction_type_id: transactionType.id,
         created_by: user.id,
-        new_make: isChangeUnit ? input.new_make || null : null,
+        new_make: isChangeUnit ? input.new_make ?? null : null,
         new_motor_number: isChangeUnit ? input.new_motor_number : null,
         new_chassis_number: isChangeUnit ? input.new_chassis_number : null,
         new_plate_number: isChangeUnit ? input.new_plate_number || null : null,
