@@ -82,7 +82,7 @@ export function FranchiseTransactionForm({
       plate_number: franchise.plate_number ?? "",
       route: franchise.route ?? "",
       make: franchise.make ?? "",
-      new_make: franchise.make ?? "",
+      new_make: "",
       day_off: franchise.day_off ?? "",
       association_id: franchise.association_id ?? "",
       reason: "",
@@ -169,16 +169,37 @@ export function FranchiseTransactionForm({
                   mono
                 />
                 <ReadOnlyField label="Owner" value={franchise.applicant_name} />
+                {isChangeUnit && (
+                  <ReadOnlyField
+                    label="Previous Unit Make / Brand"
+                    value={franchise.make}
+                  />
+                )}
                 <ReadOnlyField
-                  label="Motor Number"
+                  label={
+                    isChangeUnit
+                      ? "Previous Unit Motor Number"
+                      : "Motor Number"
+                  }
                   value={franchise.motor_number}
                   mono
                 />
                 <ReadOnlyField
-                  label="Chassis Number"
+                  label={
+                    isChangeUnit
+                      ? "Previous Unit Chassis Number"
+                      : "Chassis Number"
+                  }
                   value={franchise.chassis_number}
                   mono
                 />
+                {isChangeUnit && (
+                  <ReadOnlyField
+                    label="Previous Unit Plate Number"
+                    value={franchise.plate_number}
+                    mono
+                  />
+                )}
               </dl>
             </CardContent>
           </Card>
@@ -287,10 +308,12 @@ export function FranchiseTransactionForm({
                   <Input id="route" {...register("route")} />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="make">Make</Label>
-                  <Input id="make" {...register("make")} />
-                </div>
+                {!isChangeUnit && (
+                  <div className="space-y-2">
+                    <Label htmlFor="make">Make</Label>
+                    <Input id="make" {...register("make")} />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="day_off">Day Off</Label>
@@ -359,7 +382,9 @@ export function FranchiseTransactionForm({
           {isChangeUnit && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">New Unit Details</CardTitle>
+                <CardTitle className="text-lg">
+                  Replacement Unit Details
+                </CardTitle>
                 <CardDescription>
                   Takes effect only once this transaction is granted — the
                   current unit stays on record until then. Replacing the unit
@@ -372,9 +397,10 @@ export function FranchiseTransactionForm({
               <CardContent className="space-y-5">
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="new_make">New Make / Brand</Label>
+                    <Label htmlFor="new_make">Replacement Make / Brand</Label>
                     <Input
                       id="new_make"
+                      placeholder="Enter the replacement motorcycle make or brand"
                       {...register("new_make")}
                       aria-invalid={!!errors.new_make}
                     />
