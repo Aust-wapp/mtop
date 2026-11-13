@@ -33,9 +33,6 @@ const TYPED = '"Courier New", Courier, monospace'
  */
 const COPY_LABEL = "LTO COPY"
 
-/** The office the signatory holds. Unlike the name, this does not change. */
-const MAYOR_TITLE = "City Mayor"
-
 /** Typed values sit at this size unless the value is too long for its rule. */
 const TYPED_SIZE = 11
 /** Below this the typing stops being readable in print; clip instead. */
@@ -324,16 +321,38 @@ function Sheet({
         <PaymentRow label="Issued at" value={data.issuedAt} />
       </div>
 
-      {/* Approval — the signature goes in the gap above the name. The block
-          is kept clear of the page's bottom edge: the sheet is a fixed 13in,
-          so anything past it would print a second, near-empty page. */}
+      {/* Approval uses the current saved Mayor settings. The signature sits
+          across the printed name, not the designation. The fixed-size slot
+          preserves the original two-page long-bond layout on screen and in print. */}
       <div style={{ marginTop: "40pt", textAlign: "center" }}>
         <div style={{ fontSize: "12pt" }}>APPROVED:</div>
-        <div style={{ height: "54pt" }} />
+        <div style={{ height: "54pt", position: "relative" }}>
+          {data.mayorSignatureUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={data.mayorSignatureUrl}
+              alt="City Mayor signature"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "20pt",
+                transform: "translateX(-50%)",
+                width: "170pt",
+                height: "48pt",
+                maxWidth: "100%",
+                objectFit: "contain",
+                mixBlendMode: "multiply",
+                opacity: 0.92,
+                zIndex: 2,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+        </div>
         <div style={{ fontWeight: 700, fontSize: "12pt" }}>
           {data.mayorName || "\u00A0"}
         </div>
-        <div style={{ fontSize: "11pt" }}>{MAYOR_TITLE}</div>
+        <div style={{ fontSize: "11pt" }}>{data.mayorDesignation || "City Mayor"}</div>
       </div>
     </div>
   )
