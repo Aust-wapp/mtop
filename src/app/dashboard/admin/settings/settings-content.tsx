@@ -35,6 +35,7 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(systemSettingsSchema),
