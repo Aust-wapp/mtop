@@ -60,5 +60,6 @@ export async function updateOfficialSignature(official: Official, file: File | n
   }
   revalidatePath("/dashboard/admin/settings")
   revalidatePath("/print/mtop", "layout")
+  revalidatePath("/print/confirmation", "layout")
   return { error: null }
 }
