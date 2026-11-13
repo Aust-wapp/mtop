@@ -197,50 +197,78 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
             Signatory
           </CardTitle>
           <CardDescription>
-            The name printed under &ldquo;APPROVED:&rdquo; on the confirmation
-            slip. It changes with the administration, so it lives here rather
-            than in the document.
+            Configure the Mayor and Treasurer for future grants and preview how
+            their names, designations, and signatures appear together on the
+            Franchise Card.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mayor_name">City Mayor</Label>
-            <Input
-              id="mayor_name"
-              placeholder="ATTY. JUAN DELA CRUZ"
-              className="w-full max-w-80"
-              {...register("mayor_name")}
-            />
-            {errors.mayor_name && (
-              <p className="text-xs text-destructive">
-                {errors.mayor_name.message}
-              </p>
-            )}
+        <CardContent className="space-y-5">
+          <p className="text-xs text-muted-foreground">
+            Preview name and designation edits before saving. Signature uploads are saved separately.
+            Previously granted permits keep their recorded signatories.
+          </p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <section className="space-y-4 rounded-lg border p-4" aria-label="City Mayor signatory settings">
+              <h3 className="text-sm font-semibold">City Mayor</h3>
+              <div className="space-y-2">
+                <Label htmlFor="mayor_name">Full name</Label>
+                <Input
+                  id="mayor_name"
+                  placeholder="Enter Mayor's full name"
+                  className="w-full"
+                  {...register("mayor_name")}
+                />
+                {errors.mayor_name && (
+                  <p className="text-xs text-destructive">{errors.mayor_name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mayor_designation">Official designation</Label>
+                <Input id="mayor_designation" {...register("mayor_designation")} />
+                {errors.mayor_designation && (
+                  <p className="text-xs text-destructive">{errors.mayor_designation.message}</p>
+                )}
+              </div>
+              <SignatureControl
+                official="mayor"
+                label="City Mayor"
+                configured={Boolean(settings.mayor_signature_path)}
+                existingUrl={mayorPreviewUrl}
+                name={watch("mayor_name") || ""}
+                designation={watch("mayor_designation") || ""}
+              />
+            </section>
+            <section className="space-y-4 rounded-lg border p-4" aria-label="City Treasurer signatory settings">
+              <h3 className="text-sm font-semibold">City Treasurer</h3>
+              <div className="space-y-2">
+                <Label htmlFor="city_treasurer_name">Full name</Label>
+                <Input
+                  id="city_treasurer_name"
+                  placeholder="Enter Treasurer's full name"
+                  className="w-full"
+                  {...register("city_treasurer_name")}
+                />
+                {errors.city_treasurer_name && (
+                  <p className="text-xs text-destructive">{errors.city_treasurer_name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="city_treasurer_designation">Official designation</Label>
+                <Input id="city_treasurer_designation" {...register("city_treasurer_designation")} />
+                {errors.city_treasurer_designation && (
+                  <p className="text-xs text-destructive">{errors.city_treasurer_designation.message}</p>
+                )}
+              </div>
+              <SignatureControl
+                official="city_treasurer"
+                label="City Treasurer"
+                configured={Boolean(settings.city_treasurer_signature_path)}
+                existingUrl={treasurerPreviewUrl}
+                name={watch("city_treasurer_name") || ""}
+                designation={watch("city_treasurer_designation") || ""}
+              />
+            </section>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="city_treasurer_name">City Treasurer</Label>
-            <Input
-              id="city_treasurer_name"
-              placeholder="CITY TREASURER NAME"
-              className="w-full max-w-80"
-              {...register("city_treasurer_name")}
-            />
-            {errors.city_treasurer_name && (
-              <p className="text-xs text-destructive">
-                {errors.city_treasurer_name.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="mayor_designation">Mayor designation</Label>
-            <Input id="mayor_designation" {...register("mayor_designation")} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="city_treasurer_designation">Treasurer designation</Label>
-            <Input id="city_treasurer_designation" {...register("city_treasurer_designation")} />
-          </div>
-          <SignatureControl official="mayor" label="City Mayor" configured={Boolean(settings.mayor_signature_path)} existingUrl={mayorPreviewUrl} />
-          <SignatureControl official="city_treasurer" label="City Treasurer" configured={Boolean(settings.city_treasurer_signature_path)} existingUrl={treasurerPreviewUrl} />
         </CardContent>
       </Card>
 
