@@ -195,8 +195,9 @@ export async function updateSystemSettings(input: SystemSettingsFormValues) {
     revalidatePath("/dashboard/applications")
     revalidatePath("/dashboard/operators")
     revalidatePath("/dashboard/admin/settings")
-    // The Franchise Card renders the currently saved Mayor/Treasurer details.
+    // Both the Franchise Card and Confirmation Slip render current saved officials.
     revalidatePath("/print/mtop", "layout")
+    revalidatePath("/print/confirmation", "layout")
 
     return { error: null }
   } catch (e) {
