@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { updateOfficialSignature } from "@/lib/actions/signatures"
@@ -14,6 +14,7 @@ export function SignatureControl({ official, label, configured, existingUrl, nam
   name: string
   designation: string
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -40,11 +41,14 @@ export function SignatureControl({ official, label, configured, existingUrl, nam
 
   return <div className="space-y-2">
     <label htmlFor={`${official}-signature`} className="text-sm font-medium">{label} signature</label>
-    <Input id={`${official}-signature`} type="file" accept="image/png,image/webp" onChange={(event) => {
+    <Input ref={fileInputRef} id={`${official}-signature`} type="file"
+      accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+      aria-describedby={`${official}-signature-hint`} onChange={(event) => {
       const selected = event.target.files?.[0] ?? null
       setFile(selected)
       setPreview(selected ? URL.createObjectURL(selected) : null)
     }} />
+    <p id={`${official}-signature-hint`} className="text-xs text-muted-foreground">PNG, JPG/JPEG, or WebP, up to 2 MB and 3000 × 1000 pixels. JPEG uploads are converted to WebP; a white JPG background remains visible.</p>
     <div role="region" aria-label={`${label} signatory block preview`} className="rounded-md border bg-[#fff5e5] px-4 py-5 text-center text-foreground">
       <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Franchise Card signatory preview</p>
       <div className="mx-auto flex h-16 max-w-56 items-center justify-center">
@@ -59,7 +63,10 @@ export function SignatureControl({ official, label, configured, existingUrl, nam
       <p className="break-words text-xs">{designation.trim() || label}</p>
     </div>
     <div className="flex gap-2">
-      <Button type="button" disabled={!file || busy} onClick={() => save(file)}>Upload signature</Button>
+      <Button type="button" disabled={busy} onClick={() => {
+        if (file) void save(file)
+        else fileInputRef.current?.click()
+      }}>{busy ? "Uploading…" : file ? "Upload signature" : "Choose signature"}</Button>
       {configured && <Button type="button" variant="outline" disabled={busy} onClick={() => save(null)}>Remove signature</Button>}
     </div>
     <p className="text-xs text-muted-foreground">This previews the signatory block only, not the complete permit. Save Settings for name/title edits; upload or remove signatures separately. Issued permits retain their recorded signatories.</p>
