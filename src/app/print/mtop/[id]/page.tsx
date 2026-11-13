@@ -35,14 +35,11 @@ const poppins = localFont({
 
 export default async function PrintMtopCardPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ signatories?: string }>
 }) {
   const { id } = await params
-  const previewCurrentSignatories = (await searchParams).signatories === "current"
-  const { data, error } = await getFranchiseCardData(id, previewCurrentSignatories)
+  const { data, error } = await getFranchiseCardData(id)
 
   if (!data) {
     if (error) {
@@ -63,10 +60,9 @@ export default async function PrintMtopCardPage({
       <PrintControls
         title="Franchise Card"
         subject={data.mtopNumber}
-        actions={<DownloadPdfButton filename={`MTOP-${data.mtopNumber || id}${previewCurrentSignatories ? "-current-signatories-preview" : ""}`} applicationId={id} previewCurrentSignatories={previewCurrentSignatories} />}
+        actions={<DownloadPdfButton filename={`MTOP-${data.mtopNumber || id}`} applicationId={id} />}
         hint="Print on 8.5 × 13 in (long bond) at 100% scale, background graphics on."
       />
-      {previewCurrentSignatories && <p className="mx-auto max-w-2xl px-4 py-2 text-center text-sm font-semibold text-amber-900 print:hidden">Preview with Current Signatories · Historical permit details have not changed</p>}
       <div className="card-stage">
         <FranchiseCard data={data} />
       </div>

@@ -44,7 +44,6 @@ export interface FranchiseCardData {
   treasurerName: string
   treasurerDesignation: string
   treasurerSignatureUrl: string | null
-  signatoryRecorded: boolean
 }
 
 const MONTHS = [
@@ -101,7 +100,7 @@ function formatPeso(amount: number) {
   })}`
 }
 
-export async function getFranchiseCardData(applicationId: string, previewCurrentSignatories = false): Promise<{
+export async function getFranchiseCardData(applicationId: string): Promise<{
   error: string | null
   data: FranchiseCardData | null
 }> {
@@ -109,9 +108,6 @@ export async function getFranchiseCardData(applicationId: string, previewCurrent
     const { supabase, user } = await getAuthUser()
     if (!(await hasPermission(supabase, user.id, "application.view"))) {
       return { error: "You do not have permission to view franchise cards.", data: null }
-    }
-    if (previewCurrentSignatories && !(await hasPermission(supabase, user.id, "admin.manage"))) {
-      return { error: "Only administrators can preview current signatories on a historical card.", data: null }
     }
 
     const { data: application, error } = await supabase
@@ -135,7 +131,7 @@ export async function getFranchiseCardData(applicationId: string, previewCurrent
     const franchise = application.franchise
     if (!franchise) return { error: "Franchise not found.", data: null }
 
-    const [{ data: payments }, settingsResult, { count: priorGrants }, { data: validityGrants }, signatoryResult] =
+    const [{ data: payments }, settingsResult, { count: priorGrants }, { data: validityGrants }] =
       await Promise.all([
         supabase
           .schema("mtop")
@@ -160,22 +156,10 @@ export async function getFranchiseCardData(applicationId: string, previewCurrent
           .eq("status", "granted")
           .lte("granted_at", application.granted_at ?? new Date().toISOString())
           .order("granted_at", { ascending: false }),
-        supabase.schema("mtop").from("franchise_card_signatories")
-          .select("mayor_name, mayor_designation, mayor_signature_path, treasurer_name, treasurer_designation, treasurer_signature_path")
-          .eq("application_id", applicationId).maybeSingle(),
       ])
 
-    if (signatoryResult.error) return { error: signatoryResult.error.message, data: null }
-    if (previewCurrentSignatories && settingsResult.error) return { error: settingsResult.error, data: null }
+    if (settingsResult.error) return { error: settingsResult.error, data: null }
     const settings = settingsResult.data
-    const signatories = previewCurrentSignatories ? {
-      mayor_name: settings.mayor_name,
-      mayor_designation: settings.mayor_designation,
-      mayor_signature_path: settings.mayor_signature_path,
-      treasurer_name: settings.city_treasurer_name,
-      treasurer_designation: settings.city_treasurer_designation,
-      treasurer_signature_path: settings.city_treasurer_signature_path,
-    } : signatoryResult.data
 
     const paid = payments ?? []
     const total = paid.reduce(
@@ -209,8 +193,8 @@ export async function getFranchiseCardData(applicationId: string, previewCurrent
       return data.signedUrl
     }
     const [mayorSignatureUrl, treasurerSignatureUrl] = await Promise.all([
-      signatureUrl(signatories?.mayor_signature_path ?? ""),
-      signatureUrl(signatories?.treasurer_signature_path ?? ""),
+      signatureUrl(settings.mayor_signature_path),
+      signatureUrl(settings.city_treasurer_signature_path),
     ])
 
     return {
@@ -242,13 +226,12 @@ export async function getFranchiseCardData(applicationId: string, previewCurrent
         orNumber: paid.map((p) => p.or_number).join(", "),
         amountPaid: paid.length > 0 ? formatPeso(total) : "",
         datePaid: formatDatePaid(paid[0]?.payment_date ?? null),
-        mayorName: signatories?.mayor_name ?? "",
-        mayorDesignation: signatories?.mayor_designation ?? "",
+        mayorName: settings.mayor_name,
+        mayorDesignation: settings.mayor_designation,
         mayorSignatureUrl,
-        treasurerName: signatories?.treasurer_name ?? "",
-        treasurerDesignation: signatories?.treasurer_designation ?? "",
+        treasurerName: settings.city_treasurer_name,
+        treasurerDesignation: settings.city_treasurer_designation,
         treasurerSignatureUrl,
-        signatoryRecorded: Boolean(signatories),
       },
     }
   } catch (e) {

@@ -1,5 +1,11 @@
 # Project progress
 
+## Current Franchise Card signatories (2026-11-13)
+
+- Newly opened Franchise Cards and downloaded PDFs read the Mayor and City Treasurer names, designations, and private signature paths from current Admin settings.
+- Grant-time signatory snapshots remain in the database for audit history. Existing archived or downloaded PDFs are unchanged. The special current-signatories preview mode was removed because the standard card now uses current settings.
+- Live verification against the isolated MTOP sandbox still requires an authenticated admin session or a connected sandbox database.
+
 ## Franchise Card draft PR #19 (2026-11-13)
 
 - NEW and RENEWAL reuse the existing Canva-derived card. The sample handwritten

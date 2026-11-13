@@ -67,11 +67,11 @@ export function SignatureControl({ official, label, configured, existingUrl, nam
         {busy ? "Uploading…" : hasSignature ? "Replace signature" : "Upload signature"}
       </Button>
       {hasSignature && <Button type="button" variant="outline" disabled={busy} onClick={() => {
-        if (window.confirm(`Remove the ${label} signature from current settings? Previously issued cards will retain it.`)) {
+        if (window.confirm(`Remove the ${label} signature from current settings? Newly generated cards will show no signature.`)) {
           void save(null)
         }
       }}>Remove signature</Button>}
     </div>
-    <p className="text-xs text-muted-foreground">Signature changes save immediately. Previously issued permits retain their recorded signatories.</p>
+    <p className="text-xs text-muted-foreground">Signature changes save immediately and appear on newly generated cards.</p>
   </div>
 }

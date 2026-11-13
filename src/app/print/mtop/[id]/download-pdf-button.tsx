@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { getFranchiseCardData } from "@/lib/actions/card"
 import { refreshCardSignatureImages } from "@/lib/card-pdf-images"
 
-export function DownloadPdfButton({ filename, applicationId, previewCurrentSignatories = false }: { filename: string; applicationId: string; previewCurrentSignatories?: boolean }) {
+export function DownloadPdfButton({ filename, applicationId }: { filename: string; applicationId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   async function download() {
@@ -14,7 +14,7 @@ export function DownloadPdfButton({ filename, applicationId, previewCurrentSigna
     setError("")
     try {
       if (card.querySelector('img[alt="City Mayor signature"], img[alt="City Treasurer signature"]')) {
-        const refreshed = await getFranchiseCardData(applicationId, previewCurrentSignatories)
+        const refreshed = await getFranchiseCardData(applicationId)
         if (refreshed.error || !refreshed.data) {
           throw new Error(refreshed.error ?? "Could not refresh card signatures.")
         }

@@ -92,12 +92,18 @@ test("signature selection uploads immediately and removal requires confirmation"
   assert.doesNotMatch(control, /window\.location\.reload\(\)/)
 })
 
-test("current-signatory preview is explicit and standard cards retain their snapshot", () => {
+test("standard cards and PDFs use current settings while snapshots remain for auditing", () => {
   const card = fs.readFileSync("src/lib/actions/card.ts", "utf8")
+  const pdf = fs.readFileSync("src/app/print/mtop/[id]/download-pdf-button.tsx", "utf8")
+  const page = fs.readFileSync("src/app/print/mtop/[id]/page.tsx", "utf8")
   const settings = fs.readFileSync("src/lib/actions/settings.ts", "utf8")
-  assert.match(card, /previewCurrentSignatories \? \{/)
-  assert.match(card, /\} : signatoryResult\.data/)
-  assert.match(card, /hasPermission\(supabase, user\.id, "admin\.manage"\)/)
+  assert.match(card, /mayorName: settings\.mayor_name/)
+  assert.match(card, /treasurerName: settings\.city_treasurer_name/)
+  assert.match(card, /signatureUrl\(settings\.mayor_signature_path\)/)
+  assert.match(card, /signatureUrl\(settings\.city_treasurer_signature_path\)/)
+  assert.doesNotMatch(card, /franchise_card_signatories|previewCurrentSignatories/)
+  assert.match(pdf, /getFranchiseCardData\(applicationId\)/)
+  assert.match(page, /getFranchiseCardData\(id\)/)
   assert.match(settings, /export async function updateSignatoryDetails/)
   assert.match(settings, /keys\.map\(\(key\) => \(\{ key, value: values\[key\]/)
   assert.doesNotMatch(settings.match(/export async function updateSignatoryDetails[\s\S]*?const DEFAULTS/)[0], /signature_path/)

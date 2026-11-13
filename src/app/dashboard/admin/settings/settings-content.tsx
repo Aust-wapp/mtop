@@ -248,7 +248,7 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
         <CardContent className="space-y-5">
           <p className="text-xs text-muted-foreground">
             Preview name and designation edits before saving. Signature uploads are saved separately.
-            Previously granted permits keep their recorded signatories.
+            Newly opened Franchise Cards use the current saved officials and signatures.
           </p>
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="space-y-4 rounded-lg border p-4" aria-label="City Mayor signatory settings">
@@ -322,8 +322,8 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
             </span>
           </div>
           {sampleApplicationId ? (
-            <a className="inline-block text-sm font-medium underline underline-offset-4" href={`/print/mtop/${sampleApplicationId}?signatories=current`} target="_blank" rel="noopener noreferrer">
-              Preview Franchise Card with Current Signatories
+            <a className="inline-block text-sm font-medium underline underline-offset-4" href={`/print/mtop/${sampleApplicationId}`} target="_blank" rel="noopener noreferrer">
+              Preview Franchise Card
             </a>
           ) : (
             <p className="text-sm text-muted-foreground">A full card preview will be available once a sample application is Granted.</p>

@@ -535,13 +535,13 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         {data.datePaid}
       </T>
 
-      {/* Signatories come from the grant snapshot, except in the labeled current-settings preview. */}
+      {/* Regenerated cards show the officials currently configured by Admin. */}
       {data.treasurerSignatureUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "846pt", width: "137pt", height: "34pt", objectFit: "contain" }} />
       )}
       <CenteredFit cx={103.7} y={882.7} size={12.6} width={185}>
-        {data.signatoryRecorded ? data.treasurerName : "SIGNATORY NOT RECORDED"}
+        {data.treasurerName || "SIGNATORY NOT CONFIGURED"}
       </CenteredFit>
       <C cx={103.6} y={897.0} size={12.6} weight={700}>
         {data.treasurerDesignation}
@@ -554,8 +554,8 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={data.mayorSignatureUrl} alt="City Mayor signature" style={{ position: "absolute", left: "357pt", top: "806pt", width: "170pt", height: "46pt", objectFit: "contain" }} />
       )}
-      <CenteredFit cx={442.3} y={855.7} size={data.signatoryRecorded ? 19.6 : 12} width={300}>
-        {data.signatoryRecorded ? data.mayorName : "SIGNATORY NOT RECORDED"}
+      <CenteredFit cx={442.3} y={855.7} size={data.mayorName ? 19.6 : 12} width={300}>
+        {data.mayorName || "SIGNATORY NOT CONFIGURED"}
       </CenteredFit>
       <C cx={442.3} y={877.4} size={19.6} italic>
         {data.mayorDesignation}
