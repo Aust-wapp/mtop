@@ -119,3 +119,13 @@ test("Mayor and Treasurer signatures overlap their names but not designation lin
   assert.match(card, /<CenteredFit cx=\{442\.3\} y=\{855\.7\}/)
   assert.match(card, /<CenteredFit cx=\{103\.7\} y=\{882\.7\}/)
 })
+
+test("Settings excludes the Franchise Card preview link and its unnecessary application query", () => {
+  const settingsView = fs.readFileSync("src/app/dashboard/admin/settings/settings-content.tsx", "utf8")
+  const settingsPage = fs.readFileSync("src/app/dashboard/admin/settings/page.tsx", "utf8")
+  assert.doesNotMatch(settingsView, /Preview Franchise Card|sampleApplicationId|full card preview/)
+  assert.doesNotMatch(settingsPage, /sampleApplication|\.from\("mtop_applications"\)/)
+  assert.match(settingsView, /Save Settings/)
+  assert.match(settingsView, /<SignatureControl/)
+  assert.match(settingsPage, /<SettingsContent settings=\{settings\}/)
+})
