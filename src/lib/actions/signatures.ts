@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { hasPermission } from "@/lib/permissions"
-import sharp from "sharp"
+import { prepareOfficialSignature } from "@/lib/signature-image"
 
 type Official = "mayor" | "city_treasurer"
 
@@ -19,32 +19,16 @@ export async function updateOfficialSignature(official: Official, file: File | n
 
   let path = ""
   if (file) {
-    if (file.size === 0 || file.size > 2 * 1024 * 1024) {
-      return { error: "Signature must be under 2 MB." }
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const png = bytes.length > 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((b, i) => bytes[i] === b)
-    const webp = bytes.length > 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
-      String.fromCharCode(...bytes.slice(8, 12)) === "WEBP"
-    if (!(png && file.type === "image/png") && !(webp && file.type === "image/webp")) {
-      return { error: "Use a valid PNG or WebP signature image." }
-    }
+    let prepared
     try {
-      const image = sharp(Buffer.from(bytes), { limitInputPixels: 3_000_000 })
-      const metadata = await image.metadata()
-      if (metadata.format !== (png ? "png" : "webp") ||
-          !metadata.width || !metadata.height ||
-          metadata.width > 3000 || metadata.height > 1000 ||
-          (metadata.pages ?? 1) !== 1) {
-        return { error: "Signature image dimensions or contents are invalid." }
-      }
-      await image.stats()
-    } catch {
-      return { error: "Signature image cannot be decoded." }
+      prepared = await prepareOfficialSignature(file)
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Invalid signature image." }
     }
-    path = `${official}/${crypto.randomUUID()}.${png ? "png" : "webp"}`
-    const { error } = await supabase.storage.from("mtop-signatures").upload(path, bytes, {
-      contentType: png ? "image/png" : "image/webp",
+
+    path = `${official}/${crypto.randomUUID()}.${prepared.extension}`
+    const { error } = await supabase.storage.from("mtop-signatures").upload(path, prepared.bytes, {
+      contentType: prepared.contentType,
       upsert: false,
     })
     if (error) return { error: error.message }
