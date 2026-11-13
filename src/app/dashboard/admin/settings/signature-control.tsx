@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input"
 import { updateOfficialSignature } from "@/lib/actions/signatures"
 import { toast } from "sonner"
 
-export function SignatureControl({ official, label, configured, existingUrl }: {
+export function SignatureControl({ official, label, configured, existingUrl, name, designation }: {
   official: "mayor" | "city_treasurer"
   label: string
   configured: boolean
   existingUrl: string | null
+  name: string
+  designation: string
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -43,14 +45,23 @@ export function SignatureControl({ official, label, configured, existingUrl }: {
       setFile(selected)
       setPreview(selected ? URL.createObjectURL(selected) : null)
     }} />
-    {(preview || existingUrl) && (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={preview || existingUrl || ""} alt={`${label} signature preview`} className="h-16 w-48 object-contain" />
-    )}
+    <div role="region" aria-label={`${label} signatory block preview`} className="rounded-md border bg-[#fff5e5] px-4 py-5 text-center text-foreground">
+      <p className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Franchise Card signatory preview</p>
+      <div className="mx-auto flex h-16 max-w-56 items-center justify-center">
+        {(preview || existingUrl) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview || existingUrl || ""} alt={`${label} signature preview`} className="max-h-16 max-w-full object-contain" />
+        ) : (
+          <span className="text-xs text-muted-foreground">No signature image</span>
+        )}
+      </div>
+      <p className="mt-2 break-words text-sm font-bold uppercase">{name.trim() || "SIGNATORY NAME"}</p>
+      <p className="break-words text-xs">{designation.trim() || label}</p>
+    </div>
     <div className="flex gap-2">
       <Button type="button" disabled={!file || busy} onClick={() => save(file)}>Upload signature</Button>
       {configured && <Button type="button" variant="outline" disabled={busy} onClick={() => save(null)}>Remove signature</Button>}
     </div>
-    {configured && !preview && <p className="text-xs text-muted-foreground">Signature configured. Select an image to preview and replace it.</p>}
+    <p className="text-xs text-muted-foreground">This previews the signatory block only, not the complete permit. Save Settings for name/title edits; upload or remove signatures separately. Issued permits retain their recorded signatories.</p>
   </div>
 }
