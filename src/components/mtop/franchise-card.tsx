@@ -503,22 +503,30 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         {data.datePaid}
       </T>
 
-      {/* Signatories — names and titles are fixed on the permit */}
+      {/* Signatories use the current official settings. */}
+      {data.treasurerSignatureUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "846pt", width: "137pt", height: "34pt", objectFit: "contain" }} />
+      )}
       <C cx={103.7} y={882.7} size={12.6} weight={700}>
-        JULIE FE C. NAPIGKIT
+        {data.treasurerName}
       </C>
       <C cx={103.6} y={897.0} size={12.6} weight={700}>
-        City Treasurer
+        {data.treasurerDesignation}
       </C>
 
       <T x={281.8} y={784.0} size={19.6}>
         APPROVED:
       </T>
+      {data.mayorSignatureUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={data.mayorSignatureUrl} alt="City Mayor signature" style={{ position: "absolute", left: "357pt", top: "806pt", width: "170pt", height: "46pt", objectFit: "contain" }} />
+      )}
       <C cx={442.3} y={855.7} size={19.6} weight={700}>
-        SAM NORMAN G. FUENTES
+        {data.mayorName}
       </C>
       <C cx={442.3} y={877.4} size={19.6} italic>
-        City Mayor
+        {data.mayorDesignation}
       </C>
       <C cx={442.3} y={899.2} size={19.6} italic>
         Ozamiz City

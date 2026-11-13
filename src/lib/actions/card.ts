@@ -37,6 +37,12 @@ export interface FranchiseCardData {
   orNumber: string
   amountPaid: string
   datePaid: string
+  mayorName: string
+  mayorDesignation: string
+  mayorSignatureUrl: string | null
+  treasurerName: string
+  treasurerDesignation: string
+  treasurerSignatureUrl: string | null
 }
 
 const MONTHS = [
@@ -173,6 +179,17 @@ export async function getFranchiseCardData(applicationId: string): Promise<{
         }
       : legacyValidity
 
+    const signatureUrl = async (path: string) => {
+      if (!path) return null
+      const { data, error } = await supabase.storage.from("mtop-signatures").createSignedUrl(path, 300)
+      if (error) throw error
+      return data.signedUrl
+    }
+    const [mayorSignatureUrl, treasurerSignatureUrl] = await Promise.all([
+      signatureUrl(settings.mayor_signature_path),
+      signatureUrl(settings.city_treasurer_signature_path),
+    ])
+
     return {
       error: null,
       data: {
@@ -202,6 +219,12 @@ export async function getFranchiseCardData(applicationId: string): Promise<{
         orNumber: paid.map((p) => p.or_number).join(", "),
         amountPaid: paid.length > 0 ? formatPeso(total) : "",
         datePaid: formatDatePaid(paid[0]?.payment_date ?? null),
+        mayorName: settings.mayor_name,
+        mayorDesignation: settings.mayor_designation,
+        mayorSignatureUrl,
+        treasurerName: settings.city_treasurer_name,
+        treasurerDesignation: settings.city_treasurer_designation,
+        treasurerSignatureUrl,
       },
     }
   } catch (e) {

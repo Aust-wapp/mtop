@@ -278,6 +278,8 @@ export const systemSettingsSchema = z.object({
     .trim()
     .max(80, "Name is too long")
     .default(""),
+  mayor_designation: z.string().trim().max(80).default("City Mayor"),
+  city_treasurer_designation: z.string().trim().max(80).default("City Treasurer"),
 })
 
 export type SystemSettingsFormValues = z.infer<typeof systemSettingsSchema>

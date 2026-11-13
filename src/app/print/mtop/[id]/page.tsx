@@ -3,6 +3,7 @@ import localFont from "next/font/local"
 import { getFranchiseCardData } from "@/lib/actions/card"
 import { FranchiseCard } from "@/components/mtop/franchise-card"
 import { PrintControls } from "../../print-controls"
+import { DownloadPdfButton } from "./download-pdf-button"
 
 // The permit's own typography, independent of the app's Plus Jakarta Sans.
 // Self-hosted from src/app/fonts — see that folder's README for why.
@@ -59,6 +60,7 @@ export default async function PrintMtopCardPage({
       <PrintControls
         title="Franchise Card"
         subject={data.mtopNumber}
+        actions={<DownloadPdfButton filename={`MTOP-${data.mtopNumber || id}`} />}
         hint="Print on 8.5 × 13 in (long bond) at 100% scale, background graphics on."
       />
       <div className="card-stage">

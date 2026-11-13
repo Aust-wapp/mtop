@@ -23,6 +23,7 @@ import {
   type SystemSettings,
 } from "@/lib/actions/settings"
 import { toast } from "sonner"
+import { SignatureControl } from "./signature-control"
 
 export function SettingsContent({ settings }: { settings: SystemSettings }) {
   const [saving, setSaving] = useState(false)
@@ -40,6 +41,8 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
       ctms_contact_number: settings.ctms_contact_number,
       mayor_name: settings.mayor_name,
       city_treasurer_name: settings.city_treasurer_name,
+      mayor_designation: settings.mayor_designation,
+      city_treasurer_designation: settings.city_treasurer_designation,
     },
   })
 
@@ -224,6 +227,16 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
               </p>
             )}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="mayor_designation">Mayor designation</Label>
+            <Input id="mayor_designation" {...register("mayor_designation")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city_treasurer_designation">Treasurer designation</Label>
+            <Input id="city_treasurer_designation" {...register("city_treasurer_designation")} />
+          </div>
+          <SignatureControl official="mayor" label="City Mayor" configured={Boolean(settings.mayor_signature_path)} />
+          <SignatureControl official="city_treasurer" label="City Treasurer" configured={Boolean(settings.city_treasurer_signature_path)} />
         </CardContent>
       </Card>
 

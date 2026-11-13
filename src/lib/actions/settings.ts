@@ -24,6 +24,10 @@ export interface SystemSettings {
   mayor_name: string
   /** Signatory on the City Treasurer's Office certifications. */
   city_treasurer_name: string
+  mayor_designation: string
+  city_treasurer_designation: string
+  mayor_signature_path: string
+  city_treasurer_signature_path: string
 }
 
 const DEFAULTS: SystemSettings = {
@@ -32,7 +36,11 @@ const DEFAULTS: SystemSettings = {
   abandonment_grace_days: DEFAULT_ABANDONMENT_GRACE_DAYS,
   ctms_contact_number: "",
   mayor_name: "",
-  city_treasurer_name: "CITY TREASURER",
+  city_treasurer_name: "",
+  mayor_designation: "City Mayor",
+  city_treasurer_designation: "City Treasurer",
+  mayor_signature_path: "",
+  city_treasurer_signature_path: "",
 }
 
 export async function getSystemSettings(): Promise<{
@@ -58,6 +66,10 @@ export async function getSystemSettings(): Promise<{
         "ctms_contact_number",
         "mayor_name",
         "city_treasurer_name",
+        "mayor_designation",
+        "city_treasurer_designation",
+        "mayor_signature_path",
+        "city_treasurer_signature_path",
       ])
 
     if (error) return { error: error.message, data: DEFAULTS }
@@ -90,8 +102,13 @@ export async function getSystemSettings(): Promise<{
             ? row.value
             : DEFAULTS.city_treasurer_name
       }
+      if (row.key === "mayor_designation" || row.key === "city_treasurer_designation" ||
+          row.key === "mayor_signature_path" || row.key === "city_treasurer_signature_path") {
+        const key = row.key as "mayor_designation" | "city_treasurer_designation" |
+          "mayor_signature_path" | "city_treasurer_signature_path"
+        settings[key] = typeof row.value === "string" ? row.value : DEFAULTS[key]
+      }
     }
-
     return { error: null, data: settings }
   } catch (e) {
     return { error: (e as Error).message, data: DEFAULTS }
@@ -152,6 +169,14 @@ export async function updateSystemSettings(input: SystemSettingsFormValues) {
       },
     ]
 
+    for (const key of ["mayor_designation", "city_treasurer_designation"] as const) {
+      updates.push({
+        key,
+        value: settings[key],
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+    }
     for (const row of updates) {
       const { error } = await supabase
         .schema("mtop")
