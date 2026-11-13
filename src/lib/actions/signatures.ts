@@ -50,16 +50,29 @@ export async function updateOfficialSignature(official: Official, file: File | n
     if (error) return { error: error.message }
   }
 
-  const { error } = await supabase.schema("mtop").from("system_settings").upsert({
-    key: `${official}_signature_path`, value: path, updated_by: user.id,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "key" })
-  if (error) {
+  let settingsError: string | null = null
+  try {
+    const { error } = await supabase.schema("mtop").from("system_settings").upsert({
+      key: `${official}_signature_path`, value: path, updated_by: user.id,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" })
+    settingsError = error?.message ?? null
+  } catch (cause) {
+    settingsError = cause instanceof Error ? cause.message : "Could not save signature settings."
+  }
+  if (settingsError) {
     if (path) {
-      const cleanup = await supabase.storage.from("mtop-signatures").remove([path])
-      if (cleanup.error) return { error: `${error.message} Upload cleanup also failed: ${cleanup.error.message}` }
+      try {
+        const cleanup = await supabase.storage.from("mtop-signatures").remove([path])
+        if (cleanup.error) {
+          return { error: `${settingsError} Upload cleanup also failed: ${cleanup.error.message}` }
+        }
+      } catch (cause) {
+        const detail = cause instanceof Error ? cause.message : "Unknown cleanup error."
+        return { error: `${settingsError} Upload cleanup also failed: ${detail}` }
+      }
     }
-    return { error: error.message }
+    return { error: settingsError }
   }
   revalidatePath("/dashboard/admin/settings")
   revalidatePath("/print/mtop", "layout")

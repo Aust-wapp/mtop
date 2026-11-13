@@ -62,6 +62,7 @@ BEGIN
   );
   RETURN NULL;
 END $$;
+REVOKE ALL ON FUNCTION mtop.capture_franchise_card_signatories() FROM PUBLIC;
 
 CREATE TRIGGER capture_franchise_card_signatories
 AFTER UPDATE OF status ON mtop.mtop_applications

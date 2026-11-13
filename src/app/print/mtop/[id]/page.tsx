@@ -60,7 +60,7 @@ export default async function PrintMtopCardPage({
       <PrintControls
         title="Franchise Card"
         subject={data.mtopNumber}
-        actions={<DownloadPdfButton filename={`MTOP-${data.mtopNumber || id}`} />}
+        actions={<DownloadPdfButton filename={`MTOP-${data.mtopNumber || id}`} applicationId={id} />}
         hint="Print on 8.5 × 13 in (long bond) at 100% scale, background graphics on."
       />
       <div className="card-stage">

@@ -1,8 +1,10 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { getFranchiseCardData } from "@/lib/actions/card"
+import { refreshCardSignatureImages } from "@/lib/card-pdf-images"
 
-export function DownloadPdfButton({ filename }: { filename: string }) {
+export function DownloadPdfButton({ filename, applicationId }: { filename: string; applicationId: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   async function download() {
@@ -11,6 +13,13 @@ export function DownloadPdfButton({ filename }: { filename: string }) {
     setBusy(true)
     setError("")
     try {
+      if (card.querySelector('img[alt="City Mayor signature"], img[alt="City Treasurer signature"]')) {
+        const refreshed = await getFranchiseCardData(applicationId)
+        if (refreshed.error || !refreshed.data) {
+          throw new Error(refreshed.error ?? "Could not refresh card signatures.")
+        }
+        await refreshCardSignatureImages(card, refreshed.data)
+      }
       await Promise.all(Array.from(card.querySelectorAll("img")).map(async (image) => {
         if (!image.complete) {
           await new Promise<void>((resolve, reject) => {

@@ -56,5 +56,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+REVOKE ALL ON FUNCTION mtop.audit_signatory_setting() FROM PUBLIC;
 CREATE TRIGGER audit_signatory_setting AFTER INSERT OR UPDATE ON mtop.system_settings
 FOR EACH ROW EXECUTE FUNCTION mtop.audit_signatory_setting();

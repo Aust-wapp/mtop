@@ -11,6 +11,9 @@
 - Signature images are kept in a private bucket. Staff with `application.view`
   can read them, administrators can upload them, and only unreferenced objects
   can be deleted for failed-upload cleanup. Settings changes are audited.
+- PDF export refreshes five-minute signature URLs immediately before capture;
+  offline tests cover refresh, missing images, and signature-free cards. The
+  actual Supabase URL and CORS behavior still require local integration tests.
 - Offline NEW and RENEWAL fixtures with and without test signatures were
   rendered to 8.5 x 13-inch PDFs under `../mtop-artifacts/`. They are not
   live-data or signed-URL integration evidence.
@@ -18,6 +21,33 @@
   exercise upload and RLS roles, verify browser PDF download and expiring image
   URLs, and compare authenticated PDFs against the two Canva pages. No MTOP
   development credentials or accessible upstream Vercel preview were available.
+- The external HDD needed by Docker was unavailable in the next session.
+  `supabase/config.toml` and `supabase/.gitignore` were generated locally and
+  left untracked; no Supabase container, database, or `.env.local` was created.
+
+### Integration checklist when the external HDD is available
+
+- Confirm the HDD and Docker data location, inspect `docker ps -a` and
+  `docker compose ls`, and preserve unrelated containers and volumes.
+- Start the existing Docker environment and only the local Supabase services
+  MTOP needs. Confirm the local project ID and that all URLs point to localhost.
+- Apply the repository migrations in order, including
+  `20261113000001_official_signatures.sql` and
+  `20261113000002_franchise_card_signatory_snapshots.sql`, to a disposable
+  local database. Verify migration status and retain all volumes.
+- Create disposable administrator and non-administrator accounts and synthetic
+  NEW, RENEWAL, and legacy grants. Verify signatory settings audit rows,
+  grant-time snapshots, immutability, and legacy display behavior.
+- Test administrator PNG and WebP upload, preview, replacement, and removal.
+  Check unauthorized upload, signed URL creation, private-object reads, and
+  orphan cleanup under the local RLS policies.
+- Generate authenticated NEW and RENEWAL previews and PDFs with and without
+  signatures. Compare both pages with Canva, including long names and
+  addresses. Verify 612 × 936 PDF points, browser print and download,
+  image CORS, and a download after the preview has been open over five minutes.
+- Run tests, TypeScript, changed-file lint, build, and SQL integration tests.
+  Stop the MTOP Next.js server, local Supabase stack, and MTOP containers when
+  finished. Confirm no project containers remain running; preserve volumes.
 
 ## MTOP Operators
 
