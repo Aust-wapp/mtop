@@ -535,10 +535,10 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         {data.datePaid}
       </T>
 
-      {/* Regenerated cards show the officials currently configured by Admin. */}
+      {/* Signatures intentionally overlap the printed names like signed permits; multiply keeps white JPEG backgrounds from obscuring text or artwork. */}
       {data.treasurerSignatureUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "846pt", width: "137pt", height: "34pt", objectFit: "contain" }} />
+        <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "856pt", width: "137pt", height: "37pt", objectFit: "contain", mixBlendMode: "multiply", opacity: 0.92, zIndex: 3, pointerEvents: "none" }} />
       )}
       <CenteredFit cx={103.7} y={882.7} size={12.6} width={185}>
         {data.treasurerName || "SIGNATORY NOT CONFIGURED"}
@@ -552,7 +552,7 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
       </T>
       {data.mayorSignatureUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={data.mayorSignatureUrl} alt="City Mayor signature" style={{ position: "absolute", left: "357pt", top: "806pt", width: "170pt", height: "46pt", objectFit: "contain" }} />
+        <img src={data.mayorSignatureUrl} alt="City Mayor signature" style={{ position: "absolute", left: "357pt", top: "832pt", width: "170pt", height: "43pt", objectFit: "contain", mixBlendMode: "multiply", opacity: 0.92, zIndex: 3, pointerEvents: "none" }} />
       )}
       <CenteredFit cx={442.3} y={855.7} size={data.mayorName ? 19.6 : 12} width={300}>
         {data.mayorName || "SIGNATORY NOT CONFIGURED"}
