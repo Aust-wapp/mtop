@@ -101,7 +101,7 @@ function formatPeso(amount: number) {
   })}`
 }
 
-export async function getFranchiseCardData(applicationId: string): Promise<{
+export async function getFranchiseCardData(applicationId: string, previewCurrentSignatories = false): Promise<{
   error: string | null
   data: FranchiseCardData | null
 }> {
@@ -109,6 +109,9 @@ export async function getFranchiseCardData(applicationId: string): Promise<{
     const { supabase, user } = await getAuthUser()
     if (!(await hasPermission(supabase, user.id, "application.view"))) {
       return { error: "You do not have permission to view franchise cards.", data: null }
+    }
+    if (previewCurrentSignatories && !(await hasPermission(supabase, user.id, "admin.manage"))) {
+      return { error: "Only administrators can preview current signatories on a historical card.", data: null }
     }
 
     const { data: application, error } = await supabase
@@ -132,7 +135,7 @@ export async function getFranchiseCardData(applicationId: string): Promise<{
     const franchise = application.franchise
     if (!franchise) return { error: "Franchise not found.", data: null }
 
-    const [{ data: payments }, { data: settings }, { count: priorGrants }, { data: validityGrants }, signatoryResult] =
+    const [{ data: payments }, settingsResult, { count: priorGrants }, { data: validityGrants }, signatoryResult] =
       await Promise.all([
         supabase
           .schema("mtop")
@@ -163,7 +166,16 @@ export async function getFranchiseCardData(applicationId: string): Promise<{
       ])
 
     if (signatoryResult.error) return { error: signatoryResult.error.message, data: null }
-    const signatories = signatoryResult.data
+    if (previewCurrentSignatories && settingsResult.error) return { error: settingsResult.error, data: null }
+    const settings = settingsResult.data
+    const signatories = previewCurrentSignatories ? {
+      mayor_name: settings.mayor_name,
+      mayor_designation: settings.mayor_designation,
+      mayor_signature_path: settings.mayor_signature_path,
+      treasurer_name: settings.city_treasurer_name,
+      treasurer_designation: settings.city_treasurer_designation,
+      treasurer_signature_path: settings.city_treasurer_signature_path,
+    } : signatoryResult.data
 
     const paid = payments ?? []
     const total = paid.reduce(

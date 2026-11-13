@@ -20,22 +20,36 @@ import {
 } from "@/lib/schemas/mtop"
 import {
   updateSystemSettings,
+  updateSignatoryDetails,
   type SystemSettings,
+  type SignatoryDetails,
 } from "@/lib/actions/settings"
 import { toast } from "sonner"
 import { SignatureControl } from "./signature-control"
 
-export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl }: {
+const signatoryKeys = ["mayor_name", "mayor_designation", "city_treasurer_name", "city_treasurer_designation"] as const
+
+export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl, sampleApplicationId }: {
   settings: SystemSettings
   mayorPreviewUrl: string | null
   treasurerPreviewUrl: string | null
+  sampleApplicationId: string | null
 }) {
   const [saving, setSaving] = useState(false)
+  const [savingSignatories, setSavingSignatories] = useState(false)
+  const [savedDetails, setSavedDetails] = useState<SignatoryDetails>(() => ({
+    mayor_name: settings.mayor_name,
+    mayor_designation: settings.mayor_designation,
+    city_treasurer_name: settings.city_treasurer_name,
+    city_treasurer_designation: settings.city_treasurer_designation,
+  }))
 
   const {
     register,
     handleSubmit,
     watch,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(systemSettingsSchema),
@@ -51,9 +65,37 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
     },
   })
 
+  const currentDetails = Object.fromEntries(
+    signatoryKeys.map((key) => [key, watch(key) ?? ""]),
+  ) as SignatoryDetails
+  const detailsChanged = signatoryKeys.some((key) => currentDetails[key] !== savedDetails[key])
+
+  async function saveSignatories() {
+    const values = Object.fromEntries(
+      signatoryKeys.map((key) => [key, getValues(key)]),
+    ) as SignatoryDetails
+    setSavingSignatories(true)
+    try {
+      const result = await updateSignatoryDetails(values)
+      if (result.error || !result.data) {
+        toast.error(result.error ?? "Could not save signatory details. Please retry.")
+        return
+      }
+      for (const key of signatoryKeys) {
+        if (getValues(key) === values[key]) setValue(key, result.data[key])
+      }
+      setSavedDetails(result.data)
+      toast.success("Signatory details saved")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save signatory details. Please retry.")
+    } finally {
+      setSavingSignatories(false)
+    }
+  }
+
   async function onSubmit(data: Record<string, unknown>) {
     setSaving(true)
-    const result = await updateSystemSettings(data as SystemSettingsFormValues)
+    const result = await updateSystemSettings({ ...data, ...savedDetails } as SystemSettingsFormValues)
     setSaving(false)
 
     if (result.error) {
@@ -270,6 +312,22 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
               />
             </section>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" disabled={savingSignatories || !detailsChanged} onClick={() => void saveSignatories()}>
+              {savingSignatories && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Signatory Details
+            </Button>
+            <span role="status" className="text-sm text-muted-foreground">
+              {detailsChanged ? "Unsaved name or designation changes" : "Signatory details saved"}
+            </span>
+          </div>
+          {sampleApplicationId ? (
+            <a className="inline-block text-sm font-medium underline underline-offset-4" href={`/print/mtop/${sampleApplicationId}?signatories=current`} target="_blank" rel="noopener noreferrer">
+              Preview Franchise Card with Current Signatories
+            </a>
+          ) : (
+            <p className="text-sm text-muted-foreground">A full card preview will be available once a sample application is Granted.</p>
+          )}
         </CardContent>
       </Card>
 

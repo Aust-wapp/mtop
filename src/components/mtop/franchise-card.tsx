@@ -535,7 +535,7 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         {data.datePaid}
       </T>
 
-      {/* Signatories use the current official settings. */}
+      {/* Signatories come from the grant snapshot, except in the labeled current-settings preview. */}
       {data.treasurerSignatureUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "846pt", width: "137pt", height: "34pt", objectFit: "contain" }} />

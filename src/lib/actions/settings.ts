@@ -30,6 +30,37 @@ export interface SystemSettings {
   city_treasurer_signature_path: string
 }
 
+export type SignatoryDetails = Pick<SystemSettings,
+  "mayor_name" | "mayor_designation" | "city_treasurer_name" | "city_treasurer_designation">
+
+export async function updateSignatoryDetails(input: SignatoryDetails) {
+  try {
+    const { supabase, user } = await getAuthUser()
+    if (!(await hasPermission(supabase, user.id, "admin.manage"))) {
+      return { error: "You do not have permission to update signatory details." }
+    }
+    const keys = ["mayor_name", "mayor_designation", "city_treasurer_name", "city_treasurer_designation"] as const
+    const values = {} as SignatoryDetails
+    for (const key of keys) {
+      const value = input[key]
+      if (typeof value !== "string" || !value.trim() || value.trim().length > 80) {
+        return { error: `${key.replaceAll("_", " ")} must be between 1 and 80 characters.` }
+      }
+      values[key] = value.trim()
+    }
+    const { error } = await supabase.schema("mtop").from("system_settings").upsert(
+      keys.map((key) => ({ key, value: values[key], updated_by: user.id, updated_at: new Date().toISOString() })),
+      { onConflict: "key" },
+    )
+    if (error) return { error: `Could not save signatory details: ${error.message}` }
+    revalidatePath("/dashboard/admin/settings")
+    revalidatePath("/print/mtop", "layout")
+    return { error: null, data: values }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not save signatory details." }
+  }
+}
+
 const DEFAULTS: SystemSettings = {
   permit_validity_years: 3,
   renewal_window_days: 90,

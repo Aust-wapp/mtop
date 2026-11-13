@@ -18,6 +18,11 @@ export default async function AdminSettingsPage() {
     preview(settings.mayor_signature_path),
     preview(settings.city_treasurer_signature_path),
   ])
+  const { data: sampleApplication } = canManage
+    ? await supabase.schema("mtop").from("mtop_applications")
+        .select("id").eq("status", "granted")
+        .order("granted_at", { ascending: false }).limit(1).maybeSingle()
+    : { data: null }
 
   return (
     <div className="space-y-6">
@@ -26,7 +31,7 @@ export default async function AdminSettingsPage() {
         subtitle="Configure permit validity, renewal monitoring, and office contact details"
       />
 
-      <SettingsContent settings={settings} mayorPreviewUrl={mayorPreviewUrl} treasurerPreviewUrl={treasurerPreviewUrl} />
+      <SettingsContent settings={settings} mayorPreviewUrl={mayorPreviewUrl} treasurerPreviewUrl={treasurerPreviewUrl} sampleApplicationId={sampleApplication?.id ?? null} />
     </div>
   )
 }

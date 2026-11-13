@@ -83,3 +83,22 @@ test("the signatory picker supports JPG and an initial click opens the chooser",
   assert.match(actions, /prepareOfficialSignature\(file\)/)
   assert.match(actions, /hasPermission\(supabase, user\.id, "admin\.manage"\)/)
 })
+
+test("signature selection uploads immediately and removal requires confirmation", () => {
+  const control = fs.readFileSync("src/app/dashboard/admin/settings/signature-control.tsx", "utf8")
+  assert.match(control, /if \(selected\) void save\(selected\)/)
+  assert.match(control, /window\.confirm\(/)
+  assert.match(control, /hasSignature \? "Replace signature" : "Upload signature"/)
+  assert.doesNotMatch(control, /window\.location\.reload\(\)/)
+})
+
+test("current-signatory preview is explicit and standard cards retain their snapshot", () => {
+  const card = fs.readFileSync("src/lib/actions/card.ts", "utf8")
+  const settings = fs.readFileSync("src/lib/actions/settings.ts", "utf8")
+  assert.match(card, /previewCurrentSignatories \? \{/)
+  assert.match(card, /\} : signatoryResult\.data/)
+  assert.match(card, /hasPermission\(supabase, user\.id, "admin\.manage"\)/)
+  assert.match(settings, /export async function updateSignatoryDetails/)
+  assert.match(settings, /keys\.map\(\(key\) => \(\{ key, value: values\[key\]/)
+  assert.doesNotMatch(settings.match(/export async function updateSignatoryDetails[\s\S]*?const DEFAULTS/)[0], /signature_path/)
+})
