@@ -92,9 +92,30 @@ test("signature selection uploads immediately and removal requires confirmation"
   assert.doesNotMatch(control, /window\.location\.reload\(\)/)
 })
 
-test("signatory details save only their four settings keys", () => {
-  const settings = fs.readFileSync("src/lib/actions/settings.ts", "utf8")
-  assert.match(settings, /export async function updateSignatoryDetails/)
-  assert.match(settings, /keys\.map\(\(key\) => \(\{ key, value: values\[key\]/)
-  assert.doesNotMatch(settings.match(/export async function updateSignatoryDetails[\s\S]*?const DEFAULTS/)[0], /signature_path/)
+test("Save Settings is the only name/designation save button and submits current fields", () => {
+  const settingsView = fs.readFileSync("src/app/dashboard/admin/settings/settings-content.tsx", "utf8")
+  const action = fs.readFileSync("src/lib/actions/settings.ts", "utf8")
+  assert.doesNotMatch(settingsView, /Save Signatory Details|updateSignatoryDetails|savedDetails/)
+  assert.match(settingsView, /updateSystemSettings\(data as SystemSettingsFormValues\)/)
+  assert.match(settingsView, /<Button type="submit" disabled=\{saving\}>/)
+  assert.match(settingsView, /reset\(data as SystemSettingsFormValues\)/)
+  assert.doesNotMatch(action, /export async function updateSignatoryDetails/)
+  assert.match(action, /key: "mayor_name"/)
+  assert.match(action, /key: "city_treasurer_name"/)
+  assert.match(action, /\["mayor_designation", "city_treasurer_designation"\]/)
+  assert.match(action, /revalidatePath\("\/print\/mtop", "layout"\)/)
+})
+
+test("Mayor and Treasurer signatures overlap their names but not designation lines", () => {
+  const card = fs.readFileSync("src/components/mtop/franchise-card.tsx", "utf8")
+  for (const [official, top] of [["City Mayor", 832], ["City Treasurer", 856]]) {
+    const line = card.split("\n").find((value) => value.includes(`alt="${official} signature"`))
+    assert.ok(line, `${official} signature must exist`)
+    assert.match(line, new RegExp(`top: "${top}pt"`))
+    assert.match(line, /mixBlendMode: "multiply"/)
+    assert.match(line, /zIndex: 3/)
+    assert.match(line, /objectFit: "contain"/)
+  }
+  assert.match(card, /<CenteredFit cx=\{442\.3\} y=\{855\.7\}/)
+  assert.match(card, /<CenteredFit cx=\{103\.7\} y=\{882\.7\}/)
 })
