@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getSystemSettings } from "@/lib/actions/settings"
 import { displayAddress } from "@/lib/address"
 import { officeDateParts } from "@/lib/office-time"
+import { hasPermission } from "@/lib/permissions"
 
 async function getAuthUser() {
   const supabase = await createClient()
@@ -41,6 +42,8 @@ export interface ConfirmationSlipData {
   issuedAt: string
   /** Signatory, from system settings — a new mayor is not a deployment. */
   mayorName: string
+  mayorDesignation: string
+  mayorSignatureUrl: string | null
 }
 
 const MONTHS = [
@@ -95,7 +98,10 @@ export async function getConfirmationSlipData(applicationId: string): Promise<{
   data: ConfirmationSlipData | null
 }> {
   try {
-    const { supabase } = await getAuthUser()
+    const { supabase, user } = await getAuthUser()
+    if (!(await hasPermission(supabase, user.id, "application.view"))) {
+      return { error: "You do not have permission to view confirmation slips.", data: null }
+    }
 
     const { data: application, error } = await supabase
       .schema("mtop")
@@ -121,7 +127,7 @@ export async function getConfirmationSlipData(applicationId: string): Promise<{
     const franchise = application.franchise
     if (!franchise) return { error: "Franchise not found.", data: null }
 
-    const [{ data: payments }, { data: settings }] = await Promise.all([
+    const [{ data: payments }, settingsResult] = await Promise.all([
       supabase
         .schema("mtop")
         .from("mtop_payments")
@@ -130,6 +136,20 @@ export async function getConfirmationSlipData(applicationId: string): Promise<{
         .order("payment_date", { ascending: true }),
       getSystemSettings(),
     ])
+
+    if (settingsResult.error) return { error: settingsResult.error, data: null }
+    const settings = settingsResult.data
+
+    // Confirmation Slips use the same CURRENT Mayor configuration as regenerated
+    // Franchise Cards; no signature URL is stored on the application record.
+    let mayorSignatureUrl: string | null = null
+    if (settings.mayor_signature_path) {
+      const { data: signature, error: signatureError } = await supabase.storage
+        .from("mtop-signatures")
+        .createSignedUrl(settings.mayor_signature_path, 300)
+      if (signatureError) return { error: `Cannot load Mayor signature: ${signatureError.message}`, data: null }
+      mayorSignatureUrl = signature?.signedUrl ?? null
+    }
 
     const paid = payments ?? []
     const total = paid.reduce(
@@ -164,6 +184,8 @@ export async function getConfirmationSlipData(applicationId: string): Promise<{
         datePaid: formatSlipDate(paid[0]?.payment_date ?? null),
         issuedAt: paid.length > 0 ? "OZAMIZ CITY" : "",
         mayorName: settings.mayor_name,
+        mayorDesignation: settings.mayor_designation,
+        mayorSignatureUrl,
       },
     }
   } catch (e) {
