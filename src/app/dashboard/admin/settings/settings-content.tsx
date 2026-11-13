@@ -25,11 +25,10 @@ import {
 import { toast } from "sonner"
 import { SignatureControl } from "./signature-control"
 
-export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl, sampleApplicationId }: {
+export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl }: {
   settings: SystemSettings
   mayorPreviewUrl: string | null
   treasurerPreviewUrl: string | null
-  sampleApplicationId: string | null
 }) {
   const [saving, setSaving] = useState(false)
   const [saveNotice, setSaveNotice] = useState(false)
@@ -280,13 +279,6 @@ export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl
               />
             </section>
           </div>
-          {sampleApplicationId ? (
-            <a className="inline-block text-sm font-medium underline underline-offset-4" href={`/print/mtop/${sampleApplicationId}`} target="_blank" rel="noopener noreferrer">
-              Preview Franchise Card
-            </a>
-          ) : (
-            <p className="text-sm text-muted-foreground">A full card preview will be available once a sample application is Granted.</p>
-          )}
         </CardContent>
       </Card>
 
