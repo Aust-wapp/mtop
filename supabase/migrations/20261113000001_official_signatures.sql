@@ -5,7 +5,10 @@ ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "MTOP staff read official signatures" ON storage.objects
   FOR SELECT TO authenticated USING (bucket_id = 'mtop-signatures' AND EXISTS (
-    SELECT 1 FROM mtop.user_roles ur WHERE ur.user_id = auth.uid()
+    SELECT 1 FROM mtop.user_roles ur
+    JOIN mtop.role_permissions rp ON rp.role_id = ur.role_id
+    JOIN mtop.permissions p ON p.id = rp.permission_id
+    WHERE ur.user_id = auth.uid() AND p.code = 'application.view'
   ));
 
 CREATE POLICY "MTOP admins upload official signatures" ON storage.objects
@@ -36,14 +39,20 @@ CREATE POLICY "Admins read signatory audit" ON mtop.signatory_audit
     WHERE ur.user_id = auth.uid() AND p.code = 'admin.manage'
   ));
 GRANT SELECT ON mtop.signatory_audit TO authenticated;
+REVOKE INSERT, UPDATE, DELETE ON mtop.signatory_audit FROM authenticated, service_role;
 CREATE FUNCTION mtop.audit_signatory_setting() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = mtop, public AS $$
+DECLARE
+  prior_value jsonb;
 BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    prior_value := OLD.value;
+  END IF;
   IF NEW.key IN ('mayor_name', 'mayor_designation', 'mayor_signature_path',
                  'city_treasurer_name', 'city_treasurer_designation', 'city_treasurer_signature_path')
-     AND (TG_OP = 'INSERT' OR OLD.value IS DISTINCT FROM NEW.value) THEN
+     AND prior_value IS DISTINCT FROM NEW.value THEN
     INSERT INTO mtop.signatory_audit(key, old_value, new_value, actor_id)
-    VALUES (NEW.key, CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.value END, NEW.value, auth.uid());
+    VALUES (NEW.key, prior_value, NEW.value, auth.uid());
   END IF;
   RETURN NEW;
 END $$;

@@ -6,9 +6,9 @@ import type { FranchiseCardData } from "@/lib/actions/card"
  * Geometry comes straight from the source Canva PDF: the page is 612 x 936pt
  * (8.5 x 13in folio) and every string is placed at the coordinates pdftotext
  * reported for the corresponding line in the original. The artwork —
- * letterhead logos, gradient bands, tricycle, ornamental footer, signatures,
+ * letterhead logos, gradient bands, tricycle, ornamental footer,
  * bullet marks and photo placeholders — is `/mtop-card-art.svg`, which is the
- * original PDF converted to SVG with only the text glyphs removed. Nothing is
+ * original PDF converted to SVG with text glyphs and sample signatures removed. Nothing is
  * redrawn by hand, so the design stays exact; only the data is ours.
  */
 
@@ -212,6 +212,38 @@ function Fit({
     >
       {children}
     </span>
+  )
+}
+
+function CenteredFit({
+  cx,
+  y,
+  size,
+  width,
+  children,
+}: {
+  cx: number
+  y: number
+  size: number
+  width: number
+  children: string
+}) {
+  const estimated = estimateWidth(children, size, 700)
+  const fitted = estimated > width ? Math.max(8, size * width / estimated) : size
+  return (
+    <span style={{
+      position: "absolute",
+      left: `${cx}pt`,
+      top: `${y}pt`,
+      transform: "translateX(-50%)",
+      maxWidth: `${width}pt`,
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      fontFamily: "var(--card-poppins)",
+      fontSize: `${fitted}pt`,
+      fontWeight: 700,
+      lineHeight: LINE_HEIGHT.poppins,
+    }}>{children}</span>
   )
 }
 
@@ -508,9 +540,9 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={data.treasurerSignatureUrl} alt="City Treasurer signature" style={{ position: "absolute", left: "35pt", top: "846pt", width: "137pt", height: "34pt", objectFit: "contain" }} />
       )}
-      <C cx={103.7} y={882.7} size={12.6} weight={700}>
-        {data.treasurerName}
-      </C>
+      <CenteredFit cx={103.7} y={882.7} size={12.6} width={185}>
+        {data.signatoryRecorded ? data.treasurerName : "SIGNATORY NOT RECORDED"}
+      </CenteredFit>
       <C cx={103.6} y={897.0} size={12.6} weight={700}>
         {data.treasurerDesignation}
       </C>
@@ -522,9 +554,9 @@ export function FranchiseCard({ data }: { data: FranchiseCardData }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={data.mayorSignatureUrl} alt="City Mayor signature" style={{ position: "absolute", left: "357pt", top: "806pt", width: "170pt", height: "46pt", objectFit: "contain" }} />
       )}
-      <C cx={442.3} y={855.7} size={19.6} weight={700}>
-        {data.mayorName}
-      </C>
+      <CenteredFit cx={442.3} y={855.7} size={data.signatoryRecorded ? 19.6 : 12} width={300}>
+        {data.signatoryRecorded ? data.mayorName : "SIGNATORY NOT RECORDED"}
+      </CenteredFit>
       <C cx={442.3} y={877.4} size={19.6} italic>
         {data.mayorDesignation}
       </C>

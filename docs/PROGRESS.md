@@ -1,4 +1,25 @@
-# MTOP Operators
+# Project progress
+
+## Franchise Card draft PR #19 (2026-11-13)
+
+- NEW and RENEWAL reuse the existing Canva-derived card. The sample handwritten
+  signatures were removed from its SVG artwork; configurable signatures now
+  occupy those reserved areas. Long official names shrink to their blocks.
+- Granting an application records both officials' names, designations, and
+  immutable signature object paths in a one-to-one permit snapshot. Legacy
+  grants are not backfilled and print "SIGNATORY NOT RECORDED".
+- Signature images are kept in a private bucket. Staff with `application.view`
+  can read them, administrators can upload them, and only unreferenced objects
+  can be deleted for failed-upload cleanup. Settings changes are audited.
+- Offline NEW and RENEWAL fixtures with and without test signatures were
+  rendered to 8.5 x 13-inch PDFs under `../mtop-artifacts/`. They are not
+  live-data or signed-URL integration evidence.
+- Before approval: apply both migrations to an authorized development database,
+  exercise upload and RLS roles, verify browser PDF download and expiring image
+  URLs, and compare authenticated PDFs against the two Canva pages. No MTOP
+  development credentials or accessible upstream Vercel preview were available.
+
+## MTOP Operators
 
 - Added `/dashboard/operators` and `/dashboard/operators/[id]`, with a sidebar
   entry directly below Applications.

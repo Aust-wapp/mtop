@@ -11,6 +11,15 @@ export function DownloadPdfButton({ filename }: { filename: string }) {
     setBusy(true)
     setError("")
     try {
+      await Promise.all(Array.from(card.querySelectorAll("img")).map(async (image) => {
+        if (!image.complete) {
+          await new Promise<void>((resolve, reject) => {
+            image.addEventListener("load", () => resolve(), { once: true })
+            image.addEventListener("error", () => reject(new Error("A card image failed to load.")), { once: true })
+          })
+        }
+        if (image.naturalWidth === 0) throw new Error("A card image failed to load.")
+      }))
       await document.fonts.ready
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas-pro"), import("jspdf")])
       const canvas = await html2canvas(card, { scale: 2, backgroundColor: "#fff5e5", useCORS: true })

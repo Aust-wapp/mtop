@@ -25,7 +25,11 @@ import {
 import { toast } from "sonner"
 import { SignatureControl } from "./signature-control"
 
-export function SettingsContent({ settings }: { settings: SystemSettings }) {
+export function SettingsContent({ settings, mayorPreviewUrl, treasurerPreviewUrl }: {
+  settings: SystemSettings
+  mayorPreviewUrl: string | null
+  treasurerPreviewUrl: string | null
+}) {
   const [saving, setSaving] = useState(false)
 
   const {
@@ -235,8 +239,8 @@ export function SettingsContent({ settings }: { settings: SystemSettings }) {
             <Label htmlFor="city_treasurer_designation">Treasurer designation</Label>
             <Input id="city_treasurer_designation" {...register("city_treasurer_designation")} />
           </div>
-          <SignatureControl official="mayor" label="City Mayor" configured={Boolean(settings.mayor_signature_path)} />
-          <SignatureControl official="city_treasurer" label="City Treasurer" configured={Boolean(settings.city_treasurer_signature_path)} />
+          <SignatureControl official="mayor" label="City Mayor" configured={Boolean(settings.mayor_signature_path)} existingUrl={mayorPreviewUrl} />
+          <SignatureControl official="city_treasurer" label="City Treasurer" configured={Boolean(settings.city_treasurer_signature_path)} existingUrl={treasurerPreviewUrl} />
         </CardContent>
       </Card>
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { hasPermission } from "@/lib/permissions"
+import sharp from "sharp"
 
 type Official = "mayor" | "city_treasurer"
 
@@ -28,6 +29,19 @@ export async function updateOfficialSignature(official: Official, file: File | n
     if (!(png && file.type === "image/png") && !(webp && file.type === "image/webp")) {
       return { error: "Use a valid PNG or WebP signature image." }
     }
+    try {
+      const image = sharp(Buffer.from(bytes), { limitInputPixels: 3_000_000 })
+      const metadata = await image.metadata()
+      if (metadata.format !== (png ? "png" : "webp") ||
+          !metadata.width || !metadata.height ||
+          metadata.width > 3000 || metadata.height > 1000 ||
+          (metadata.pages ?? 1) !== 1) {
+        return { error: "Signature image dimensions or contents are invalid." }
+      }
+      await image.stats()
+    } catch {
+      return { error: "Signature image cannot be decoded." }
+    }
     path = `${official}/${crypto.randomUUID()}.${png ? "png" : "webp"}`
     const { error } = await supabase.storage.from("mtop-signatures").upload(path, bytes, {
       contentType: png ? "image/png" : "image/webp",
@@ -40,7 +54,13 @@ export async function updateOfficialSignature(official: Official, file: File | n
     key: `${official}_signature_path`, value: path, updated_by: user.id,
     updated_at: new Date().toISOString(),
   }, { onConflict: "key" })
-  if (error) return { error: error.message }
+  if (error) {
+    if (path) {
+      const cleanup = await supabase.storage.from("mtop-signatures").remove([path])
+      if (cleanup.error) return { error: `${error.message} Upload cleanup also failed: ${cleanup.error.message}` }
+    }
+    return { error: error.message }
+  }
   revalidatePath("/dashboard/admin/settings")
   revalidatePath("/print/mtop", "layout")
   return { error: null }
