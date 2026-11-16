@@ -21,8 +21,8 @@ CREATE POLICY "MTOP admins upload official signatures" ON storage.objects
     )
   );
 
--- The server writes a new immutable object per replacement; old objects remain
--- available for historically issued documents and audit investigation.
+-- Replacements create distinct object paths. Only objects no longer referenced
+-- by current Mayor/Treasurer settings can be cleaned up; audit entries persist.
 CREATE TABLE mtop.signatory_audit (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   key text NOT NULL,
@@ -59,3 +59,20 @@ END $$;
 REVOKE ALL ON FUNCTION mtop.audit_signatory_setting() FROM PUBLIC;
 CREATE TRIGGER audit_signatory_setting AFTER INSERT OR UPDATE ON mtop.system_settings
 FOR EACH ROW EXECUTE FUNCTION mtop.audit_signatory_setting();
+
+-- Permit administrator orphan cleanup while protecting active official images.
+CREATE POLICY "MTOP admins clean orphaned signatures" ON storage.objects
+  FOR DELETE TO authenticated USING (
+    bucket_id = 'mtop-signatures'
+    AND NOT EXISTS (
+      SELECT 1 FROM mtop.system_settings s
+      WHERE s.key IN ('mayor_signature_path', 'city_treasurer_signature_path')
+        AND s.value #>> '{}' = name
+    )
+    AND EXISTS (
+      SELECT 1 FROM mtop.user_roles ur
+      JOIN mtop.role_permissions rp ON rp.role_id = ur.role_id
+      JOIN mtop.permissions p ON p.id = rp.permission_id
+      WHERE ur.user_id = auth.uid() AND p.code = 'admin.manage'
+    )
+  );
