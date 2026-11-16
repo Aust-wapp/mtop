@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { getSystemSettings } from "@/lib/actions/settings"
 import { displayAddress } from "@/lib/address"
 import { officeDateParts } from "@/lib/office-time"
+import { confirmationSlipGivenDate } from "@/lib/confirmation-slip-date"
 import { hasPermission } from "@/lib/permissions"
 
 async function getAuthUser() {
@@ -31,11 +32,11 @@ export interface ConfirmationSlipData {
   motorNumber: string
   chassisNumber: string
   plateNumber: string
-  /** "13", with `grantedOrdinal` carrying the "th" that is set superscript. */
-  grantedDay: string
-  grantedOrdinal: string
-  grantedMonth: string
-  grantedYear: string
+  /** Current Asia/Manila date when the Confirmation Slip is generated. */
+  givenDay: string
+  givenOrdinal: string
+  givenMonth: string
+  givenYear: string
   orNumber: string
   amountPaid: string
   datePaid: string
@@ -60,29 +61,6 @@ const MONTHS = [
   "November",
   "December",
 ]
-
-/** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st. */
-function ordinalSuffix(day: number): string {
-  if (day >= 11 && day <= 13) return "th"
-  if (day % 10 === 1) return "st"
-  if (day % 10 === 2) return "nd"
-  if (day % 10 === 3) return "rd"
-  return "th"
-}
-
-/** The officer's issuance day; legacy records fall back to the grant timestamp. */
-function grantedParts(grantedAt: string | null) {
-  const granted = officeDateParts(grantedAt)
-  if (!granted)
-    return { grantedDay: "", grantedOrdinal: "", grantedMonth: "", grantedYear: "" }
-
-  return {
-    grantedDay: String(granted.day),
-    grantedOrdinal: ordinalSuffix(granted.day),
-    grantedMonth: MONTHS[granted.month - 1],
-    grantedYear: String(granted.year),
-  }
-}
 
 /** The slip writes the OR date numerically — 03/27/2026. */
 function formatSlipDate(value: string | null) {
@@ -171,7 +149,7 @@ export async function getConfirmationSlipData(applicationId: string): Promise<{
         motorNumber: franchise.motor_number ?? "",
         chassisNumber: franchise.chassis_number ?? "",
         plateNumber: franchise.plate_number ?? "",
-        ...grantedParts(application.date_issued ?? application.granted_at),
+        ...confirmationSlipGivenDate(),
         // One line, however many receipts paid for the transaction.
         orNumber: paid.map((p) => p.or_number).join(", "),
         amountPaid:
