@@ -96,10 +96,11 @@ test("regenerated standard cards use current officials without changing grant re
 
 test("single official-signatures migration creates private storage, audit, and safe cleanup", () => {
   const directory = path.join(__dirname, "../supabase/migrations")
-  const files = fs.readdirSync(directory).filter((name) =>
-    /^2026111[36].*signature.*\.sql$/.test(name)
-  )
-  assert.deepEqual(files, ["20261113000001_official_signatures.sql"])
+  const signatureMigrations = fs.readdirSync(directory).filter((name) =>
+    name.startsWith("20261113") || name.startsWith("20261116")
+  ).filter((name) => name.includes("signatur") || name.includes("signator"))
+  assert.deepEqual(signatureMigrations, ["20261113000001_official_signatures.sql"])
+  const files = signatureMigrations
 
   const migration = fs.readFileSync(
     path.join(directory, files[0]), "utf8"
