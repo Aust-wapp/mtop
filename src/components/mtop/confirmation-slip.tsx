@@ -299,13 +299,13 @@ function Sheet({
               whiteSpace: "nowrap",
             }}
           >
-            {data.grantedDay || "  "}
-            <sup style={{ fontSize: "7pt" }}>{data.grantedOrdinal}</sup>
+            {data.givenDay || "  "}
+            <sup style={{ fontSize: "7pt" }}>{data.givenOrdinal}</sup>
           </span>
           <span style={{ whiteSpace: "nowrap" }}>day of</span>
-          <Blank value={data.grantedMonth} grow={1} />
+          <Blank value={data.givenMonth} grow={1} />
           <span style={{ whiteSpace: "nowrap", fontFamily: TYPED }}>
-            ,&nbsp;{data.grantedYear}
+            ,&nbsp;{data.givenYear}
           </span>
           <span style={{ whiteSpace: "nowrap" }}>
             at the City of Ozamiz, Philippines.
