@@ -93,3 +93,27 @@ test("regenerated standard cards use current officials without changing grant re
   assert.equal(application.status, "granted")
   assert.equal(franchise.mtop_number, "TEST-1")
 })
+
+test("historical signatory snapshots are retired without removing the active signature bucket or audit trail", () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, "../supabase/migrations/20261116000003_remove_franchise_card_signatory_snapshots.sql"),
+    "utf8"
+  )
+  assert.match(migration, /DROP TRIGGER IF EXISTS capture_franchise_card_signatories/)
+  assert.match(migration, /DROP FUNCTION IF EXISTS mtop\.capture_franchise_card_signatories\(\)/)
+  assert.match(migration, /DROP TABLE IF EXISTS mtop\.franchise_card_signatories/)
+  assert.match(migration, /DROP POLICY IF EXISTS "MTOP admins clean orphaned signatures"/)
+  assert.match(migration, /CREATE POLICY "MTOP admins clean orphaned signatures"/)
+  assert.match(migration, /s\.key IN \('mayor_signature_path', 'city_treasurer_signature_path'\)/)
+  assert.match(migration, /p\.code = 'admin\.manage'/)
+  assert.doesNotMatch(migration, /DROP TABLE.*mtop\.signatory_audit/)
+  assert.doesNotMatch(migration, /DROP TABLE.*storage\.buckets/)
+  assert.doesNotMatch(migration, /DELETE FROM storage\.objects/)
+  const card = fs.readFileSync(path.join(__dirname, "../src/lib/actions/card.ts"), "utf8")
+  const slip = fs.readFileSync(path.join(__dirname, "../src/lib/actions/confirmation-slip.ts"), "utf8")
+  assert.doesNotMatch(card, /\.from\("franchise_card_signatories"\)/)
+  assert.doesNotMatch(slip, /\.from\("franchise_card_signatories"\)/)
+  assert.match(card, /mayorName: settings\.mayor_name/)
+  assert.match(card, /treasurerName: settings\.city_treasurer_name/)
+  assert.match(slip, /mayorName: settings\.mayor_name/)
+})
