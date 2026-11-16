@@ -1,19 +1,17 @@
 # Project progress
 
-## Current Franchise Card signatories (2026-11-13)
+## Current Franchise Card signatories (updated 2026-11-16)
 
 - Newly opened Franchise Cards and downloaded PDFs read the Mayor and City Treasurer names, designations, and private signature paths from current Admin settings.
-- Grant-time signatory snapshots remain in the database for audit history. Existing archived or downloaded PDFs are unchanged. The special current-signatories preview mode was removed because the standard card now uses current settings.
-- Live verification against the isolated MTOP sandbox still requires an authenticated admin session or a connected sandbox database.
+- The issuing officials are always taken from current Admin Settings when a permit or Confirmation Slip is generated/reprinted; the historical snapshot trigger/table are retired by `20261116000003_remove_franchise_card_signatory_snapshots.sql`. Existing downloaded or archived PDFs are unchanged. Signatory settings edits remain recorded in the separate `signatory_audit` table.
+- The isolated MTOP sandbox has been connected and tested. Authenticated print/PDF visual review remains to be completed before production approval.
 
 ## Franchise Card draft PR #19 (2026-11-13)
 
 - NEW and RENEWAL reuse the existing Canva-derived card. The sample handwritten
   signatures were removed from its SVG artwork; configurable signatures now
   occupy those reserved areas. Long official names shrink to their blocks.
-- Granting an application records both officials' names, designations, and
-  immutable signature object paths in a one-to-one permit snapshot. Legacy
-  grants are not backfilled and print "SIGNATORY NOT RECORDED".
+- Applications do **not** freeze the official signatories on granting. Franchise Cards and Confirmation Slips read the currently serving Mayor/Treasurer's name, designation and signature; previously granted permits reprinted today use the current officials.
 - Signature images are kept in a private bucket. Staff with `application.view`
   can read them, administrators can upload them, and only unreferenced objects
   can be deleted for failed-upload cleanup. Settings changes are audited.
@@ -23,10 +21,10 @@
 - Offline NEW and RENEWAL fixtures with and without test signatures were
   rendered to 8.5 x 13-inch PDFs under `../mtop-artifacts/`. They are not
   live-data or signed-URL integration evidence.
-- Before approval: apply both migrations to an authorized development database,
-  exercise upload and RLS roles, verify browser PDF download and expiring image
-  URLs, and compare authenticated PDFs against the two Canva pages. No MTOP
-  development credentials or accessible upstream Vercel preview were available.
+- Before approval: verify all three signatory migrations on an isolated database,
+  including the snapshot-removal migration, exercise upload and RLS roles,
+  verify browser PDF download and expiring image URLs, and compare authenticated
+  PDFs against the two Canva pages. Do not apply to the official database without approval.
 - The external HDD needed by Docker was unavailable in the next session.
   `supabase/config.toml` and `supabase/.gitignore` were generated locally and
   left untracked; no Supabase container, database, or `.env.local` was created.
@@ -38,12 +36,14 @@
 - Start the existing Docker environment and only the local Supabase services
   MTOP needs. Confirm the local project ID and that all URLs point to localhost.
 - Apply the repository migrations in order, including
-  `20261113000001_official_signatures.sql` and
-  `20261113000002_franchise_card_signatory_snapshots.sql`, to a disposable
-  local database. Verify migration status and retain all volumes.
+  `20261113000001_official_signatures.sql`,
+  `20261113000002_franchise_card_signatory_snapshots.sql`, and
+  `20261116000003_remove_franchise_card_signatory_snapshots.sql`.
+  The older snapshot migration is retained for versioned history, but its schema
+  effects are removed by the final migration. Verify migration status.
 - Create disposable administrator and non-administrator accounts and synthetic
-  NEW, RENEWAL, and legacy grants. Verify signatory settings audit rows,
-  grant-time snapshots, immutability, and legacy display behavior.
+  NEW, RENEWAL, and legacy grants. Verify signatory settings audit rows, that
+  no snapshot table/trigger remains, and that all reprints use current officials.
 - Test administrator PNG and WebP upload, preview, replacement, and removal.
   Check unauthorized upload, signed URL creation, private-object reads, and
   orphan cleanup under the local RLS policies.
