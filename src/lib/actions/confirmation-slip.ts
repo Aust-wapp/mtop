@@ -47,21 +47,6 @@ export interface ConfirmationSlipData {
   mayorSignatureUrl: string | null
 }
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-]
-
 /** The slip writes the OR date numerically — 03/27/2026. */
 function formatSlipDate(value: string | null) {
   const paid = officeDateParts(value)
