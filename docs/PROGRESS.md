@@ -1,59 +1,17 @@
 # Project progress
 
-## Current Franchise Card signatories (updated 2026-11-16)
+## Current-official signatories — single migration candidate (2026-11-16)
 
-- Newly opened Franchise Cards and downloaded PDFs read the Mayor and City Treasurer names, designations, and private signature paths from current Admin settings.
-- The issuing officials are always taken from current Admin Settings when a permit or Confirmation Slip is generated/reprinted; the historical snapshot trigger/table are retired by `20261116000003_remove_franchise_card_signatory_snapshots.sql`. Existing downloaded or archived PDFs are unchanged. Signatory settings edits remain recorded in the separate `signatory_audit` table.
-- The isolated MTOP sandbox has been connected and tested. Authenticated print/PDF visual review remains to be completed before production approval.
-
-## Franchise Card draft PR #19 (2026-11-13)
-
-- NEW and RENEWAL reuse the existing Canva-derived card. The sample handwritten
-  signatures were removed from its SVG artwork; configurable signatures now
-  occupy those reserved areas. Long official names shrink to their blocks.
-- Applications do **not** freeze the official signatories on granting. Franchise Cards and Confirmation Slips read the currently serving Mayor/Treasurer's name, designation and signature; previously granted permits reprinted today use the current officials.
-- Signature images are kept in a private bucket. Staff with `application.view`
-  can read them, administrators can upload them, and only unreferenced objects
-  can be deleted for failed-upload cleanup. Settings changes are audited.
-- PDF export refreshes five-minute signature URLs immediately before capture;
-  offline tests cover refresh, missing images, and signature-free cards. The
-  actual Supabase URL and CORS behavior still require local integration tests.
-- Offline NEW and RENEWAL fixtures with and without test signatures were
-  rendered to 8.5 x 13-inch PDFs under `../mtop-artifacts/`. They are not
-  live-data or signed-URL integration evidence.
-- Before approval: verify all three signatory migrations on an isolated database,
-  including the snapshot-removal migration, exercise upload and RLS roles,
-  verify browser PDF download and expiring image URLs, and compare authenticated
-  PDFs against the two Canva pages. Do not apply to the official database without approval.
-- The external HDD needed by Docker was unavailable in the next session.
-  `supabase/config.toml` and `supabase/.gitignore` were generated locally and
-  left untracked; no Supabase container, database, or `.env.local` was created.
-
-### Integration checklist when the external HDD is available
-
-- Confirm the HDD and Docker data location, inspect `docker ps -a` and
-  `docker compose ls`, and preserve unrelated containers and volumes.
-- Start the existing Docker environment and only the local Supabase services
-  MTOP needs. Confirm the local project ID and that all URLs point to localhost.
-- Apply the repository migrations in order, including
-  `20261113000001_official_signatures.sql`,
-  `20261113000002_franchise_card_signatory_snapshots.sql`, and
-  `20261116000003_remove_franchise_card_signatory_snapshots.sql`.
-  The older snapshot migration is retained for versioned history, but its schema
-  effects are removed by the final migration. Verify migration status.
-- Create disposable administrator and non-administrator accounts and synthetic
-  NEW, RENEWAL, and legacy grants. Verify signatory settings audit rows, that
-  no snapshot table/trigger remains, and that all reprints use current officials.
-- Test administrator PNG and WebP upload, preview, replacement, and removal.
-  Check unauthorized upload, signed URL creation, private-object reads, and
-  orphan cleanup under the local RLS policies.
-- Generate authenticated NEW and RENEWAL previews and PDFs with and without
-  signatures. Compare both pages with Canva, including long names and
-  addresses. Verify 612 × 936 PDF points, browser print and download,
-  image CORS, and a download after the preview has been open over five minutes.
-- Run tests, TypeScript, changed-file lint, build, and SQL integration tests.
-  Stop the MTOP Next.js server, local Supabase stack, and MTOP containers when
-  finished. Confirm no project containers remain running; preserve volumes.
+- Branch: `feat/current-official-signatures-single-migration` (separate from Draft PR #19).
+- The Franchise Card and Confirmation Slip always read the **currently configured** Mayor and City Treasurer names, designations and signature paths from Admin Settings. No application-level historical signatory snapshots are created or read.
+- **Exactly one new signatory migration** relative to upstream `main`:
+  `supabase/migrations/20261113000001_official_signatures.sql`.
+  It creates a private `mtop-signatures` bucket, permission-controlled staff reads/admin uploads, admin-only orphan cleanup protecting active settings references, and signatory-settings audit history. No snapshot table or grant-status trigger is created.
+- The two obsolete migration files (`20261113000002_franchise_card_signatory_snapshots.sql` and `20261116000003_remove_franchise_card_signatory_snapshots.sql`) are absent on this branch. All other existing project migrations remain intact.
+- The isolated MTOP sandbox previously applied all three migration versions and ended at the equivalent desired schema. **Do not reapply or edit its migration history automatically**: applying the one-file version to a fresh official database differs from reconciling the existing sandbox's migration history.
+- Existing permits, grant dates, and payment dates remain unchanged. Old downloaded PDFs are not rewritten. The Confirmation Slip's "Given this" date uses the current Asia/Manila date when generated.
+- Regenerating cards/downloads uses active officials; the current signature image paths are protected from deletion while referenced in settings. Replaced unreferenced objects may be cleaned by authorized administrators.
+- Before official rollout, validate migration on a clean isolated database with RLS roles, upload/replace/remove, signed URLs, print/PDF formatting (8.5 × 13 inches) and no leftover snapshot table/trigger. Do not apply to production or merge without approval.
 
 ## MTOP Operators
 
